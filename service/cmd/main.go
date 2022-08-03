@@ -1,4 +1,3 @@
-
 // build go1.16
 
 package main
@@ -6,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/rovechkin1/message-sign/service/signer"
 	"log"
 	"net/http"
 	"os/signal"
@@ -23,10 +23,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// create mock store
+	// initialize objects
 	store := store.NewMockStore()
-	recordSigner := batch.NewRecordSigner(store)
-	batchSigner := batch.NewBatchSigner(store)
+	keyStore, err := signer.NewFileKeyStore()
+	if err != nil {
+		log.Fatalf("Canot init key store")
+	}
+	recordSigner := batch.NewRecordSigner(store, keyStore)
+	batchSigner := batch.NewBatchSigner(store, keyStore)
 
 	router := gin.Default()
 	// endpoint to sign all records in store
@@ -37,18 +41,18 @@ func main() {
 			c.String(http.StatusBadRequest, "invalid batch size")
 			return
 		}
-		nRecords,err := recordSigner.SignRecords(ctx, store, batchSize)
+		nRecords, err := recordSigner.SignRecords(ctx, store, batchSize)
 		if err != nil {
 			log.Printf("ERROR: failed to sign in batch: %v", err)
 			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("error signing records, error: %v",err))
+				fmt.Sprintf("error signing records, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v",nRecords))
+			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v", nRecords))
 		}
 	})
 
 	// endpoint to sing a batch of records
-	router.GET("/batch/:offset/:size", func(c *gin.Context) {
+	router.GET("/batch/:offset/:size/:key", func(c *gin.Context) {
 		var err error
 		offset, err := strconv.Atoi(c.Param("offset"))
 		if err != nil {
@@ -60,15 +64,18 @@ func main() {
 			c.String(http.StatusBadRequest, "invalid batch size")
 			return
 		}
-		nRecords,err := batchSigner.SignBatch(ctx, offset, batchSize)
+		if len(c.Param("key")) == 0 {
+			c.String(http.StatusBadRequest, "invalid keyId")
+			return
+		}
+		nRecords, err := batchSigner.SignBatch(ctx, offset, batchSize, c.Param("key"))
 		if err != nil {
 			log.Printf("ERROR: failed to sign in batch: %v", err)
-			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v",err))
+			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v",nRecords))
+			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v", nRecords))
 		}
 	})
-
 
 	srv := &http.Server{
 		Addr:    ":8080",
