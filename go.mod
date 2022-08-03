@@ -1,4 +1,4 @@
-module service/main.go
+module github.com/rovechkin1/message-sign
 
 go 1.19
 

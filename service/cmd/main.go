@@ -5,13 +5,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rovechkin1/message-sign/service/batch"
+	"github.com/rovechkin1/message-sign/service/store"
 )
 
 func main() {
@@ -19,11 +23,52 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// create mock store
+	store := store.NewMockStore()
+	recordSigner := batch.NewRecordSigner(store)
+	batchSigner := batch.NewBatchSigner(store)
+
 	router := gin.Default()
-	router.GET("/", func(c *gin.Context) {
-		time.Sleep(10 * time.Second)
-		c.String(http.StatusOK, "Welcome Gin Server")
+	// endpoint to sign all records in store
+	router.GET("/sign/:size", func(c *gin.Context) {
+		var err error
+		batchSize, err := strconv.Atoi(c.Param("size"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid batch size")
+			return
+		}
+		nRecords,err := recordSigner.SignRecords(ctx, store, batchSize)
+		if err != nil {
+			log.Printf("ERROR: failed to sign in batch: %v", err)
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("error signing records, error: %v",err))
+		} else {
+			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v",nRecords))
+		}
 	})
+
+	// endpoint to sing a batch of records
+	router.GET("/batch/:offset/:size", func(c *gin.Context) {
+		var err error
+		offset, err := strconv.Atoi(c.Param("offset"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid offset")
+			return
+		}
+		batchSize, err := strconv.Atoi(c.Param("size"))
+		if err != nil {
+			c.String(http.StatusBadRequest, "invalid batch size")
+			return
+		}
+		nRecords,err := batchSigner.SignBatch(ctx, offset, batchSize)
+		if err != nil {
+			log.Printf("ERROR: failed to sign in batch: %v", err)
+			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v",err))
+		} else {
+			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v",nRecords))
+		}
+	})
+
 
 	srv := &http.Server{
 		Addr:    ":8080",
