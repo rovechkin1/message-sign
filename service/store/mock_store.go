@@ -31,6 +31,13 @@ func (c *mockStore) GetTotalRecords() (int, error) {
 
 // ReadBatch reads messages in batch
 func (c *mockStore) ReadBatch(start int, nRecords int) ([]Record, error) {
+	records := generateRecords(nRecords)
+	// simulate request latency
+	time.Sleep(1 * time.Second)
+	return records, nil
+}
+
+func generateRecords(nRecords int) []Record {
 	var records []Record
 	for i := 0; i < nRecords; i += 1 {
 		uuidWithHyphen := uuid.New()
@@ -41,9 +48,7 @@ func (c *mockStore) ReadBatch(start int, nRecords int) ([]Record, error) {
 		}
 		records = append(records, r)
 	}
-	// simulate request latency
-	time.Sleep(1 * time.Second)
-	return records, nil
+	return records
 }
 
 // WriteSignaturesBatch writes messages signatures in batch
