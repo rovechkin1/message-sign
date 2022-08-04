@@ -41,13 +41,13 @@ func main() {
 			c.String(http.StatusBadRequest, "invalid batch size")
 			return
 		}
-		nRecords, err := recordSigner.SignRecords(ctx, store, batchSize)
+		err = recordSigner.SignRecords(ctx, store, batchSize)
 		if err != nil {
 			log.Printf("ERROR: failed to sign in batch: %v", err)
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("error signing records, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v", nRecords))
+			c.String(http.StatusOK, fmt.Sprintf("Success signing."))
 		}
 	})
 
@@ -68,12 +68,12 @@ func main() {
 			c.String(http.StatusBadRequest, "invalid keyId")
 			return
 		}
-		nRecords, err := batchSigner.SignBatch(ctx, offset, batchSize, c.Param("key"))
+		err = batchSigner.SignBatch(ctx, offset, batchSize, c.Param("key"))
 		if err != nil {
 			log.Printf("ERROR: failed to sign in batch: %v", err)
 			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success signing. Records signed: %v", nRecords))
+			c.String(http.StatusOK, fmt.Sprintf("Success started signing"))
 		}
 	})
 

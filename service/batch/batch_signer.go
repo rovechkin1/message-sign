@@ -21,7 +21,21 @@ func NewBatchSigner(store store.MessageStore, keyStore signer.KeyStore) *BatchSi
 }
 
 // SignBatch implements signer for messages
-func (c *BatchSigner) SignBatch(ctx context.Context, start int, nRecords int, keyId string) (int, error) {
+func (c *BatchSigner) SignBatch(ctx context.Context, start int, nRecords int, keyId string) error {
+	go func() {
+		nr, err := c.signRecords(start, nRecords, keyId)
+		if err !=nil {
+			log.Printf("ERROR: failed to sign records in range: %v, nRecords: %v, keyId: %v, error: %v",
+				start, nRecords, keyId, err)
+		} else{
+			log.Printf("INFO: signed %v records in range: %v, nRecords: %v, keyId: %v",
+				nRecords, start, nr, keyId)
+		}
+	}()
+	return nil
+}
+
+func (c *BatchSigner) signRecords(start int, nRecords int, keyId string) (int, error) {
 	log.Printf("INFO: sign batch: start %v, nRecords: %v",
 		start, nRecords)
 	// query records

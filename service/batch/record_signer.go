@@ -27,19 +27,19 @@ func NewRecordSigner(store store.MessageStore,
 // SignRecords signs records in bulk
 func (c *RecordSigner) SignRecords(ctx context.Context,
 	store store.MessageStore,
-	batchSize int) (int, error) {
+	batchSize int) error {
 	log.Printf("INFO: batch size: batch_size: %v",
 		batchSize)
 
 	// get available signing keys
 	keys, err := c.keyStore.GetKeyIds()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	nRecords, err := store.GetTotalRecords()
 	if err != nil {
-		return nRecords, err
+		return err
 	}
 
 	// split into batches
@@ -49,7 +49,6 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 	}
 	log.Printf("INFO: founds records: %v, will process batches: %v",
 		nRecords, nBatches)
-	totalSigned := 0
 	for iBatch := 0; iBatch < nBatches; iBatch += 1 {
 		// spawn batch signing
 		// if failure is encountered, return reporting how many
@@ -60,21 +59,16 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 			iBatch*batchSize, batchSize, keys[iKey])
 		resp, err := http.Get(url)
 		if err != nil {
-			return totalSigned, fmt.Errorf("Error signing batch %v, error: %v",
+			return fmt.Errorf("Error signing batch %v, error: %v",
 				iBatch, err)
 		}
 
 		_, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return totalSigned, fmt.Errorf("Error signing batch %v, error: %v",
+			return fmt.Errorf("Error signing batch %v, error: %v",
 				iBatch, err)
 		}
-		nSigned := batchSize
-		if iBatch == nBatches-1 && nRecords%batchSize > 0 {
-			nSigned = nRecords % batchSize
-		}
-		totalSigned += nSigned
 	}
-	log.Printf("INFO: signed records: %v", totalSigned)
-	return totalSigned, nil
+	log.Printf("INFO: signed records")
+	return nil
 }
