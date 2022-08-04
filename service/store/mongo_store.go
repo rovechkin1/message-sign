@@ -42,6 +42,25 @@ func (c *mongoStore) GetTotalRecords() (int, error) {
 	return int(nRecords), nil
 }
 
+// GetTotalSignedRecords records in store which are signed
+func (c *mongoStore) GetTotalSignedRecords() (int, error) {
+	client, ctx, cancel, err := connect("mongodb://localhost:27017")
+	if err != nil {
+		return 0, err
+	}
+	defer close(client, ctx, cancel)
+
+	db := client.Database("msg-signer")
+	coll := db.Collection("records")
+
+	nRecords, err := coll.CountDocuments(ctx, bson.D{{"sign", bson.D{{"$ne", ""}}}})
+	if err != nil {
+		return 0, err
+	}
+
+	return int(nRecords), nil
+}
+
 // ReadBatch reads messages in batch
 func (c *mongoStore) ReadBatch(start int, nRecords int) ([]Record, error) {
 	client, ctx, cancel, err := connect("mongodb://localhost:27017")

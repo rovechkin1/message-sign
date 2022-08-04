@@ -1,5 +1,5 @@
 
-build:
+build-service:
 	go build -o bin/service service/cmd/main.go
 
 build-key-gen:

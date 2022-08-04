@@ -16,6 +16,12 @@ type RecordSigner struct {
 	keyStore signer.KeyStore
 }
 
+type SignerStats struct {
+	TotalRecords    int `json:"total_records"`
+	SignedRecords   int `json:"signed_records"`
+	UnsignedRecords int `json:"unsigned_records"`
+}
+
 func NewRecordSigner(store store.MessageStore,
 	keyStore signer.KeyStore) *RecordSigner {
 	return &RecordSigner{
@@ -71,4 +77,25 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 	}
 	log.Printf("INFO: started signed records")
 	return nil
+}
+
+// SignRecords signs records in bulk
+func (c *RecordSigner) GetStats(ctx context.Context,
+	store store.MessageStore) (*SignerStats, error) {
+
+	var err error
+	stats := &SignerStats{}
+	stats.TotalRecords, err = store.GetTotalRecords()
+	if err != nil {
+		return nil, err
+	}
+
+	stats.SignedRecords, err = store.GetTotalSignedRecords()
+	if err != nil {
+		return nil, err
+	}
+
+	stats.UnsignedRecords = stats.TotalRecords - stats.SignedRecords
+
+	return stats, nil
 }

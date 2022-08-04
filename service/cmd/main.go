@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/rovechkin1/message-sign/service/signer"
 	"log"
@@ -48,6 +49,20 @@ func main() {
 				fmt.Sprintf("error signing records, error: %v", err))
 		} else {
 			c.String(http.StatusOK, fmt.Sprintf("Success started  signing."))
+		}
+	})
+
+	// endpoint to get statistics
+	router.GET("/stats", func(c *gin.Context) {
+		var err error
+		stats, err := recordSigner.GetStats(ctx, store)
+		if err != nil {
+			log.Printf("ERROR: failed to get stats: %v", err)
+			c.String(http.StatusInternalServerError,
+				fmt.Sprintf("error to get stats, error: %v", err))
+		} else {
+			r, _ := json.Marshal(*stats)
+			c.String(http.StatusOK, fmt.Sprintf("stats: %s", r))
 		}
 	})
 

@@ -17,6 +17,9 @@ type MessageStore interface {
 	// GetTotalRecords records in store
 	GetTotalRecords() (int, error)
 
+	// GetTotalSignedRecords records in store which are signed
+	GetTotalSignedRecords() (int, error)
+
 	// ReadBatch reads messages in batch
 	ReadBatch(start int, n int) ([]Record, error)
 
