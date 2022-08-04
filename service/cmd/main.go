@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rovechkin1/message-sign/service/signer"
+	"github.com/rovechkin1/message-sign/service/config"
 	"log"
 	"net/http"
 	"os/signal"
@@ -17,6 +17,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rovechkin1/message-sign/service/batch"
 	"github.com/rovechkin1/message-sign/service/store"
+
+	"github.com/rovechkin1/message-sign/service/signer"
 )
 
 func main() {
@@ -93,7 +95,7 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    fmt.Sprintf(":%s", config.GetSignerPort()),
 		Handler: router,
 	}
 

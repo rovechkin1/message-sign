@@ -3,14 +3,15 @@ package store
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
-	"time"
-)
 
-// Mock store implementation
+	"github.com/rovechkin1/message-sign/service/config"
+)
 
 // Interface to read/write messages
 type mongoStore struct {
@@ -19,13 +20,13 @@ type mongoStore struct {
 
 func NewMongoStore() MessageStore {
 	return &mongoStore{
-		url: "mongodb://localhost:27017",
+		url: config.GetMongoUrl(),
 	}
 }
 
 // GetTotalRecords records in store
 func (c *mongoStore) GetTotalRecords() (int, error) {
-	client, ctx, cancel, err := connect("mongodb://localhost:27017")
+	client, ctx, cancel, err := connect(c.url)
 	if err != nil {
 		return 0, err
 	}
@@ -44,7 +45,7 @@ func (c *mongoStore) GetTotalRecords() (int, error) {
 
 // GetTotalSignedRecords records in store which are signed
 func (c *mongoStore) GetTotalSignedRecords() (int, error) {
-	client, ctx, cancel, err := connect("mongodb://localhost:27017")
+	client, ctx, cancel, err := connect(c.url)
 	if err != nil {
 		return 0, err
 	}
@@ -63,7 +64,7 @@ func (c *mongoStore) GetTotalSignedRecords() (int, error) {
 
 // ReadBatch reads messages in batch
 func (c *mongoStore) ReadBatch(start int, nRecords int) ([]Record, error) {
-	client, ctx, cancel, err := connect("mongodb://localhost:27017")
+	client, ctx, cancel, err := connect(c.url)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +107,7 @@ func (c *mongoStore) ReadBatch(start int, nRecords int) ([]Record, error) {
 // WriteSignaturesBatch writes messages signatures in batch
 func (c *mongoStore) WriteSignaturesBatch(records []Record) error {
 
-	client, ctx, cancel, err := connect("mongodb://localhost:27017")
+	client, ctx, cancel, err := connect(c.url)
 	if err != nil {
 		return err
 	}
