@@ -24,7 +24,7 @@ func main() {
 	defer stop()
 
 	// initialize objects
-	store := store.NewMockStore()
+	store := store.NewMongoStore()
 	keyStore, err := signer.NewFileKeyStore()
 	if err != nil {
 		log.Fatalf("Canot init key store")
@@ -47,7 +47,7 @@ func main() {
 			c.String(http.StatusInternalServerError,
 				fmt.Sprintf("error signing records, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success signing."))
+			c.String(http.StatusOK, fmt.Sprintf("Success started  signing."))
 		}
 	})
 

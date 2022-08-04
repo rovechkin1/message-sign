@@ -69,6 +69,6 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 				iBatch, err)
 		}
 	}
-	log.Printf("INFO: signed records")
+	log.Printf("INFO: started signed records")
 	return nil
 }

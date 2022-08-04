@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
+	"log"
 	"strings"
 	"time"
 
@@ -56,7 +57,7 @@ func connect(uri string) (*mongo.Client, context.Context,
 // This is a user defined method that accepts
 // mongo.Client and context.Context
 // This method used to ping the mongoDB, return error if any.
-func ping(client *mongo.Client, ctx context.Context) error {
+func insertRecords(client *mongo.Client, ctx context.Context) error {
 
 	// mongo.Client has Ping to ping mongoDB, deadline of
 	// the Ping method will be determined by cxt
@@ -69,28 +70,29 @@ func ping(client *mongo.Client, ctx context.Context) error {
 	db := client.Database("msg-signer")
 	coll := db.Collection("records")
 
-	for i:=0;i<2;i+=1 {
-		recs := generateRecords(1000)
-		var bsons []bson.D
-		for _,r := range recs {
-			obj := bson.D {
-				{"id" , r.Id},
-				{"msg" , r.Msg},
-				{"sign" , r.Signature},
-				{"key" , r.KeyId},
+	for i := 0; i < 2; i += 1 {
+		recs := generateRecords(100)
+		var bsons []interface{}
+		for _, r := range recs {
+			obj := bson.D{
+				{"id", r.Id},
+				{"msg", r.Msg},
+				{"sign", r.Signature},
+				{"key", r.KeyId},
 			}
-			bsons = append(bsons,obj)
+			bsons = append(bsons, obj)
 		}
 
-		_, err := coll.InsertMany(ctx, []interface{}{
-			bsons})
+		res, err := coll.InsertMany(ctx, bsons)
 		if err != nil {
 			return err
 		}
+		log.Printf("INFO: inserted %v records", len(res.InsertedIDs))
 	}
 
 	return nil
 }
+
 // Record describing message to sign
 type Record struct {
 	// message unique id
@@ -102,6 +104,7 @@ type Record struct {
 	// Public key id
 	KeyId string
 }
+
 func generateRecords(nRecords int) []Record {
 	var records []Record
 	for i := 0; i < nRecords; i += 1 {
@@ -130,5 +133,8 @@ func main() {
 	defer close(client, ctx, cancel)
 
 	// Ping mongoDB with Ping method
-	ping(client, ctx)
+	err = insertRecords(client, ctx)
+	if err != nil {
+		log.Printf("ERROR: failed to insert records, error: %v", err)
+	}
 }
