@@ -67,7 +67,7 @@ func insertRecords(client *mongo.Client, ctx context.Context) error {
 		return err
 	}
 	fmt.Println("connected successfully")
-	db := client.Database("msg-signer")
+	db := client.Database(dbName)
 	coll := db.Collection("records")
 
 	for i := 0; i < 2; i += 1 {

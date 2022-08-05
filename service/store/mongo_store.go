@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	dbName             = "msg-signer"
 	unsignedCollection = "records"
 	signedCollection   = "signed-records"
 )
@@ -30,6 +31,28 @@ func NewMongoClient(ctx context.Context) (*MongoClient, context.Context, error) 
 	if err != nil {
 		return nil, nil, err
 	}
+	// create collections if needed
+	cols := make(map[string]interface{})
+	db := client.Database(dbName)
+	names, err := db.ListCollectionNames(ctx, bson.D{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, c := range names {
+		cols[c] = true
+	}
+
+	need := []string{unsignedCollection, signedCollection}
+	for _, c := range need {
+		if _, ok := cols[c]; !ok {
+			err := db.CreateCollection(ctx, c)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
 	return &MongoClient{
 		Client: client,
 		cancel: cancel,
@@ -53,7 +76,7 @@ func NewMongoStore(client *MongoClient) MessageStore {
 // GetRecordCount records in store which are signed
 func (c *mongoStore) GetRecordCount(ctx context.Context, signed bool) (int, error) {
 
-	db := c.client.Client.Database("msg-signer")
+	db := c.client.Client.Database(dbName)
 	var coll *mongo.Collection
 	if !signed {
 		coll = db.Collection(unsignedCollection)
@@ -78,7 +101,7 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 	// this shard. This is not efficient, e.g. each shard has to read all
 	// records. Better approach would be to craft a filter query
 	// to run in mongo store
-	db := c.client.Client.Database("msg-signer")
+	db := c.client.Client.Database(dbName)
 	coll := db.Collection(unsignedCollection)
 	opts := options.Find()
 	opts.SetSort(bson.D{{"id", 1}})
@@ -127,9 +150,9 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 // WriteSignaturesBatch writes messages signatures in batch
 func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 
-	db := c.client.Client.Database("msg-signer")
+	db := c.client.Client.Database(dbName)
 	coll := db.Collection(unsignedCollection)
-	collSign := db.Collection(unsignedCollection)
+	collSign := db.Collection(signedCollection)
 
 	filter := bson.D{{"id", record.Id}}
 	update := bson.D{{"$set", bson.D{
@@ -143,6 +166,16 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	if err != nil {
 		return err
 	}
+
+	//update := bson.D{{"$set", bson.D{
+	//	{"msg", record.Msg},
+	//	{"key", record.KeyId},
+	//	{"sign", record.Signature},
+	//	}}}
+	//_, err := collSign.InsertOne(ctx, update)
+	//if err != nil {
+	//	return err
+	//}
 
 	// record is saved, can remove it from usigned collection
 	_, err = coll.DeleteOne(ctx, filter)
