@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"time"
@@ -11,6 +13,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/rovechkin1/message-sign/service/config"
+)
+
+const (
+	unsignedCollection = "records"
+	signedCollection   = "signed-records"
 )
 
 type MongoClient struct {
@@ -43,11 +50,16 @@ func NewMongoStore(client *MongoClient) MessageStore {
 	}
 }
 
-// GetTotalRecords records in store
-func (c *mongoStore) GetTotalRecords(ctx context.Context) (int, error) {
+// GetRecordCount records in store which are signed
+func (c *mongoStore) GetRecordCount(ctx context.Context, signed bool) (int, error) {
 
 	db := c.client.Client.Database("msg-signer")
-	coll := db.Collection("records")
+	var coll *mongo.Collection
+	if !signed {
+		coll = db.Collection(unsignedCollection)
+	} else {
+		coll = db.Collection(signedCollection)
+	}
 
 	nRecords, err := coll.CountDocuments(ctx, bson.D{})
 	if err != nil {
@@ -57,35 +69,25 @@ func (c *mongoStore) GetTotalRecords(ctx context.Context) (int, error) {
 	return int(nRecords), nil
 }
 
-// GetTotalSignedRecords records in store which are signed
-func (c *mongoStore) GetTotalSignedRecords(ctx context.Context) (int, error) {
-
-	db := c.client.Client.Database("msg-signer")
-	coll := db.Collection("records")
-
-	nRecords, err := coll.CountDocuments(ctx, bson.D{{"sign", bson.D{{"$ne", ""}}}})
-	if err != nil {
-		return 0, err
-	}
-
-	return int(nRecords), nil
-}
-
 // ReadBatch reads messages in batch
+// For batch selection use sharding such that nRecords%batchCount == batchId
 func (c *mongoStore) ReadBatch(ctx context.Context,
-	start int, nRecords int) ([]Record, error) {
+	batchId int, batchCount int) ([]Record, error) {
 
+	// Scan all the records and select records which belong to
+	// this shard. This is not efficient, e.g. each shard has to read all
+	// records. Better approach would be to craft a filter query
+	// to run in mongo store
 	db := c.client.Client.Database("msg-signer")
-	coll := db.Collection("records")
+	coll := db.Collection(unsignedCollection)
 	opts := options.Find()
-	opts.SetSort(bson.D{{"id", 1}}).SetSkip(int64(start))
+	opts.SetSort(bson.D{{"id", 1}})
 	sortCursor, err := coll.Find(ctx, bson.D{}, opts)
 	if err != nil {
 		return nil, err
 	}
 	var records []Record
-	for i := 0; i < nRecords &&
-		sortCursor.Next(ctx) == true; i += 1 {
+	for sortCursor.Next(ctx) == true {
 		var result bson.D
 		if err := sortCursor.Decode(&result); err != nil {
 			return nil, err
@@ -104,25 +106,48 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 				nr.KeyId = fmt.Sprintf("%s", r.Value)
 			}
 		}
-		records = append(records, nr)
+		idBytes, err := hex.DecodeString(nr.Id)
+		if err != nil {
+			log.Printf("WARN: failed to convert record id : %v, skip the record", nr.Id)
+			continue
+		}
+		if len(idBytes) < 8 {
+			log.Printf("WARN: failed to convert record id, it is less than 8 bytes : %v, skip the record", nr.Id)
+			continue
+		}
+		i := int64(binary.LittleEndian.Uint64(idBytes[:8]))
+		// check if this records belongs to batchId shard
+		if i%int64(batchCount) == int64(batchId) {
+			records = append(records, nr)
+		}
 	}
 	return records, nil
 }
 
 // WriteSignaturesBatch writes messages signatures in batch
-func (c *mongoStore) WriteSignaturesBatch(ctx context.Context, records []Record) error {
+func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 
 	db := c.client.Client.Database("msg-signer")
-	coll := db.Collection("records")
+	coll := db.Collection(unsignedCollection)
+	collSign := db.Collection(unsignedCollection)
 
-	for _, r := range records {
-		filter := bson.D{{"id", r.Id}}
-		update := bson.D{{"$set", bson.D{{"sign", r.Signature},
-			{"key", r.KeyId}}}}
-		_, err := coll.UpdateOne(ctx, filter, update)
-		if err != nil {
-			return err
-		}
+	filter := bson.D{{"id", record.Id}}
+	update := bson.D{{"$set", bson.D{
+		{"msg", record.Msg},
+		{"key", record.KeyId},
+		{"sign", record.Signature},
+	}}}
+	opts := options.UpdateOptions{}
+	opts.SetUpsert(true)
+	_, err := collSign.UpdateOne(ctx, filter, update, &opts)
+	if err != nil {
+		return err
+	}
+
+	// record is saved, can remove it from usigned collection
+	_, err = coll.DeleteOne(ctx, filter)
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -17,7 +17,6 @@ type RecordSigner struct {
 }
 
 type SignerStats struct {
-	TotalRecords    int `json:"total_records"`
 	SignedRecords   int `json:"signed_records"`
 	UnsignedRecords int `json:"unsigned_records"`
 }
@@ -37,32 +36,33 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 	log.Printf("INFO: batch size: batch_size: %v",
 		batchSize)
 
+	nRecords, err := store.GetRecordCount(ctx, false)
+	if err != nil {
+		return err
+	}
+
+	// split into batches
+	batchCount := nRecords / batchSize
+	if nRecords%batchSize > 0 {
+		batchCount += 1
+	}
+	log.Printf("INFO: founds records: %v, will process batches: %v",
+		nRecords, batchCount)
+
 	// get available signing keys
 	keys, err := c.keyStore.GetKeyIds()
 	if err != nil {
 		return err
 	}
 
-	nRecords, err := store.GetTotalRecords(ctx)
-	if err != nil {
-		return err
-	}
-
-	// split into batches
-	nBatches := nRecords / batchSize
-	if nRecords%batchSize > 0 {
-		nBatches += 1
-	}
-	log.Printf("INFO: founds records: %v, will process batches: %v",
-		nRecords, nBatches)
-	for iBatch := 0; iBatch < nBatches; iBatch += 1 {
+	for iBatch := 0; iBatch < batchCount; iBatch += 1 {
 		// spawn batch signing
 		// if failure is encountered, return reporting how many
 		// batches were spawn
 		iKey := iBatch % len(keys)
 		log.Printf("Batch: %v, key_id: %v", iBatch, keys[iKey])
 		url := fmt.Sprintf("http://localhost:8080/batch/%d/%d/%s",
-			iBatch*batchSize, batchSize, keys[iKey])
+			iBatch, batchCount, keys[iKey])
 		resp, err := http.Get(url)
 		if err != nil {
 			return fmt.Errorf("Error signing batch %v, error: %v",
@@ -85,17 +85,15 @@ func (c *RecordSigner) GetStats(ctx context.Context,
 
 	var err error
 	stats := &SignerStats{}
-	stats.TotalRecords, err = store.GetTotalRecords(ctx)
+	stats.UnsignedRecords, err = store.GetRecordCount(ctx, false)
 	if err != nil {
 		return nil, err
 	}
 
-	stats.SignedRecords, err = store.GetTotalSignedRecords(ctx)
+	stats.SignedRecords, err = store.GetRecordCount(ctx, true)
 	if err != nil {
 		return nil, err
 	}
-
-	stats.UnsignedRecords = stats.TotalRecords - stats.SignedRecords
 
 	return stats, nil
 }

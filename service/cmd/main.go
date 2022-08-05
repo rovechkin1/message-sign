@@ -44,12 +44,12 @@ func main() {
 	// endpoint to sign all records in store
 	router.GET("/sign/:size", func(c *gin.Context) {
 		var err error
-		batchSize, err := strconv.Atoi(c.Param("size"))
+		size, err := strconv.Atoi(c.Param("size"))
 		if err != nil {
 			c.String(http.StatusBadRequest, "invalid batch size")
 			return
 		}
-		err = recordSigner.SignRecords(ctx, store, batchSize)
+		err = recordSigner.SignRecords(ctx, store, size)
 		if err != nil {
 			log.Printf("ERROR: failed to sign in batch: %v", err)
 			c.String(http.StatusInternalServerError,
@@ -74,28 +74,28 @@ func main() {
 	})
 
 	// endpoint to sing a batch of records
-	router.GET("/batch/:offset/:size/:key", func(c *gin.Context) {
+	router.GET("/batch/:batchId/:batchCount/:key", func(c *gin.Context) {
 		var err error
-		offset, err := strconv.Atoi(c.Param("offset"))
+		batchId, err := strconv.Atoi(c.Param("batchId"))
 		if err != nil {
-			c.String(http.StatusBadRequest, "invalid offset")
+			c.String(http.StatusBadRequest, "invalid batchId")
 			return
 		}
-		batchSize, err := strconv.Atoi(c.Param("size"))
+		batchCount, err := strconv.Atoi(c.Param("batchCount"))
 		if err != nil {
-			c.String(http.StatusBadRequest, "invalid batch size")
+			c.String(http.StatusBadRequest, "invalid batchCount")
 			return
 		}
 		if len(c.Param("key")) == 0 {
 			c.String(http.StatusBadRequest, "invalid keyId")
 			return
 		}
-		err = batchSigner.SignBatch(ctx, offset, batchSize, c.Param("key"))
+		err = batchSigner.SignBatch(ctx, batchId, batchCount, c.Param("key"))
 		if err != nil {
-			log.Printf("ERROR: failed to sign in batch: %v", err)
+			log.Printf("ERROR: failed to sign in batchId: %v, error: %v", batchId, err)
 			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v", err))
 		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success started signing"))
+			c.String(http.StatusOK, fmt.Sprintf("Started signing for batchId: %v", batchId))
 		}
 	})
 

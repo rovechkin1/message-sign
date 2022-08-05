@@ -16,15 +16,12 @@ type Record struct {
 
 // MessageStore is an interface to read/write messages
 type MessageStore interface {
-	// GetTotalRecords records in store
-	GetTotalRecords(ctx context.Context) (int, error)
-
-	// GetTotalSignedRecords records in store which are signed
-	GetTotalSignedRecords(ctx context.Context) (int, error)
+	// GetRecordCount records in store which are signed
+	GetRecordCount(ctx context.Context, signed bool) (int, error)
 
 	// ReadBatch reads messages in batch
-	ReadBatch(ctx context.Context, start int, n int) ([]Record, error)
+	ReadBatch(ctx context.Context, batchId int, batchCount int) ([]Record, error)
 
-	// WriteSignaturesBatch writes messages signatures in batch
-	WriteSignaturesBatch(ctx context.Context, signs []Record) error
+	// WriteRecord writes a single record
+	WriteRecord(ctx context.Context, record Record) error
 }

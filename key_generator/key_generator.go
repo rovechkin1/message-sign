@@ -22,16 +22,17 @@ func main() {
 	}
 
 	defer f.Close()
-
+	count := 0
 	for _, v := range keys {
 		_, err2 := f.WriteString(fmt.Sprintf("%s,%s\n", v.KeyId, v.pk))
 
 		if err2 != nil {
 			log.Fatal(err2)
 		}
+		count += 1
 	}
 
-	fmt.Println("done")
+	fmt.Printf("done, inserted %v records\n", count)
 }
 
 // SigningKey contains key id, public key and private key
