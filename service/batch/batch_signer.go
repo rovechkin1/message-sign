@@ -43,6 +43,10 @@ func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) err
 	if err != nil {
 		return err
 	}
+	if len(records) == 0 {
+		log.Printf("INFO: no records to sign. BatchId : %v\n", batchId)
+		return nil
+	}
 
 	// get key
 	key, err := c.keyStore.GetKeyById(keyId)

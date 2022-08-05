@@ -138,9 +138,10 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 			log.Printf("WARN: failed to convert record id, it is less than 8 bytes : %v, skip the record", nr.Id)
 			continue
 		}
-		i := int64(binary.LittleEndian.Uint64(idBytes[:8]))
+		i := uint64(binary.LittleEndian.Uint64(idBytes[:8]))
 		// check if this records belongs to batchId shard
-		if i%int64(batchCount) == int64(batchId) {
+		mod := i % uint64(batchCount)
+		if mod == uint64(batchId) {
 			records = append(records, nr)
 		}
 	}
