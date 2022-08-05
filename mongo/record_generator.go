@@ -14,6 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
+const (
+	dbName             = "msg-signer"
+	unsignedCollection = "records"
+	signedCollection   = "signed-records"
+)
+
 // This is a user defined method to close resources.
 // This method closes mongoDB connection and cancel context.
 func close(client *mongo.Client, ctx context.Context,
