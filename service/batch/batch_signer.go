@@ -39,7 +39,7 @@ func (c *BatchSigner) signRecords(start int, nRecords int, keyId string) (int, e
 	log.Printf("INFO: sign batch: start %v, nRecords: %v",
 		start, nRecords)
 	// query records
-	records, err := c.store.ReadBatch(start, nRecords)
+	records, err := c.store.ReadBatch(context.Background(), start, nRecords)
 	if err != nil {
 		return 0, err
 	}
@@ -67,7 +67,7 @@ func (c *BatchSigner) signRecords(start int, nRecords int, keyId string) (int, e
 		}
 	}
 	// write records back
-	err = c.store.WriteSignaturesBatch(signedRecords)
+	err = c.store.WriteSignaturesBatch(context.Background(), signedRecords)
 	if err != nil {
 		return 0, err
 	}

@@ -27,7 +27,12 @@ func main() {
 	defer stop()
 
 	// initialize objects
-	store := store.NewMongoStore()
+	mongoClient, ctxMongo, err := store.NewMongoClient(ctx)
+	if err != nil {
+		log.Fatalf("Canot create mongo client")
+	}
+	defer mongoClient.Close(ctxMongo)
+	store := store.NewMongoStore(mongoClient)
 	keyStore, err := signer.NewFileKeyStore()
 	if err != nil {
 		log.Fatalf("Canot init key store")

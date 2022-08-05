@@ -43,7 +43,7 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 		return err
 	}
 
-	nRecords, err := store.GetTotalRecords()
+	nRecords, err := store.GetTotalRecords(ctx)
 	if err != nil {
 		return err
 	}
@@ -85,12 +85,12 @@ func (c *RecordSigner) GetStats(ctx context.Context,
 
 	var err error
 	stats := &SignerStats{}
-	stats.TotalRecords, err = store.GetTotalRecords()
+	stats.TotalRecords, err = store.GetTotalRecords(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	stats.SignedRecords, err = store.GetTotalSignedRecords()
+	stats.SignedRecords, err = store.GetTotalSignedRecords(ctx)
 	if err != nil {
 		return nil, err
 	}

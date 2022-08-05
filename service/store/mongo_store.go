@@ -13,26 +13,40 @@ import (
 	"github.com/rovechkin1/message-sign/service/config"
 )
 
-// Interface to read/write messages
-type mongoStore struct {
-	url string
+type MongoClient struct {
+	Client *mongo.Client
+	cancel context.CancelFunc
 }
 
-func NewMongoStore() MessageStore {
+func NewMongoClient(ctx context.Context) (*MongoClient, context.Context, error) {
+	client, ctx, cancel, err := connect(ctx, config.GetMongoUrl())
+	if err != nil {
+		return nil, nil, err
+	}
+	return &MongoClient{
+		Client: client,
+		cancel: cancel,
+	}, ctx, nil
+}
+func (c *MongoClient) Close(ctx context.Context) {
+	close(c.Client, ctx, c.cancel)
+}
+
+// Interface to read/write messages
+type mongoStore struct {
+	client *MongoClient
+}
+
+func NewMongoStore(client *MongoClient) MessageStore {
 	return &mongoStore{
-		url: config.GetMongoUrl(),
+		client: client,
 	}
 }
 
 // GetTotalRecords records in store
-func (c *mongoStore) GetTotalRecords() (int, error) {
-	client, ctx, cancel, err := connect(c.url)
-	if err != nil {
-		return 0, err
-	}
-	defer close(client, ctx, cancel)
+func (c *mongoStore) GetTotalRecords(ctx context.Context) (int, error) {
 
-	db := client.Database("msg-signer")
+	db := c.client.Client.Database("msg-signer")
 	coll := db.Collection("records")
 
 	nRecords, err := coll.CountDocuments(ctx, bson.D{})
@@ -44,14 +58,9 @@ func (c *mongoStore) GetTotalRecords() (int, error) {
 }
 
 // GetTotalSignedRecords records in store which are signed
-func (c *mongoStore) GetTotalSignedRecords() (int, error) {
-	client, ctx, cancel, err := connect(c.url)
-	if err != nil {
-		return 0, err
-	}
-	defer close(client, ctx, cancel)
+func (c *mongoStore) GetTotalSignedRecords(ctx context.Context) (int, error) {
 
-	db := client.Database("msg-signer")
+	db := c.client.Client.Database("msg-signer")
 	coll := db.Collection("records")
 
 	nRecords, err := coll.CountDocuments(ctx, bson.D{{"sign", bson.D{{"$ne", ""}}}})
@@ -63,14 +72,10 @@ func (c *mongoStore) GetTotalSignedRecords() (int, error) {
 }
 
 // ReadBatch reads messages in batch
-func (c *mongoStore) ReadBatch(start int, nRecords int) ([]Record, error) {
-	client, ctx, cancel, err := connect(c.url)
-	if err != nil {
-		return nil, err
-	}
-	defer close(client, ctx, cancel)
+func (c *mongoStore) ReadBatch(ctx context.Context,
+	start int, nRecords int) ([]Record, error) {
 
-	db := client.Database("msg-signer")
+	db := c.client.Client.Database("msg-signer")
 	coll := db.Collection("records")
 	opts := options.Find()
 	opts.SetSort(bson.D{{"id", 1}}).SetSkip(int64(start))
@@ -105,15 +110,9 @@ func (c *mongoStore) ReadBatch(start int, nRecords int) ([]Record, error) {
 }
 
 // WriteSignaturesBatch writes messages signatures in batch
-func (c *mongoStore) WriteSignaturesBatch(records []Record) error {
+func (c *mongoStore) WriteSignaturesBatch(ctx context.Context, records []Record) error {
 
-	client, ctx, cancel, err := connect(c.url)
-	if err != nil {
-		return err
-	}
-	defer close(client, ctx, cancel)
-
-	db := client.Database("msg-signer")
+	db := c.client.Client.Database("msg-signer")
 	coll := db.Collection("records")
 
 	for _, r := range records {
@@ -128,13 +127,13 @@ func (c *mongoStore) WriteSignaturesBatch(records []Record) error {
 	return nil
 }
 
-func connect(uri string) (*mongo.Client, context.Context,
+func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,
 	context.CancelFunc, error) {
 
 	// ctx will be used to set deadline for process, here
 	// deadline will of 30 seconds.
 
-	ctx, cancel := context.WithTimeout(context.Background(),
+	ctx, cancel := context.WithTimeout(ctx,
 		30*time.Second)
 
 	// mongo.Connect return mongo.Client method

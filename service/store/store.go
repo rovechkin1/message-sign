@@ -1,5 +1,7 @@
 package store
 
+import "context"
+
 // Record describing message to sign
 type Record struct {
 	// message unique id
@@ -15,14 +17,14 @@ type Record struct {
 // MessageStore is an interface to read/write messages
 type MessageStore interface {
 	// GetTotalRecords records in store
-	GetTotalRecords() (int, error)
+	GetTotalRecords(ctx context.Context) (int, error)
 
 	// GetTotalSignedRecords records in store which are signed
-	GetTotalSignedRecords() (int, error)
+	GetTotalSignedRecords(ctx context.Context) (int, error)
 
 	// ReadBatch reads messages in batch
-	ReadBatch(start int, n int) ([]Record, error)
+	ReadBatch(ctx context.Context, start int, n int) ([]Record, error)
 
 	// WriteSignaturesBatch writes messages signatures in batch
-	WriteSignaturesBatch(signs []Record) error
+	WriteSignaturesBatch(ctx context.Context, signs []Record) error
 }
