@@ -17,4 +17,4 @@ WORKDIR /app/
 COPY --from=build /app/service /app/service
 COPY --from=build /app/record-generator /app/record-generator
 
-#ENTRYPOINT ["/app/service"]
+ENTRYPOINT ["/app/service"]

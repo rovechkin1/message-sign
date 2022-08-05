@@ -195,8 +195,17 @@ func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,
 	ctx, cancel := context.WithTimeout(ctx,
 		30*time.Second)
 
+	opts := options.Client().ApplyURI(uri)
+	if config.GetMongoUser() != "" {
+		credential := options.Credential{
+			Username: config.GetMongoUser(),
+			Password: config.GetMongoPwd(),
+		}
+		opts = opts.SetAuth(credential)
+	}
+
 	// mongo.Connect return mongo.Client method
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(ctx, opts)
 	return client, ctx, cancel, err
 }
 
