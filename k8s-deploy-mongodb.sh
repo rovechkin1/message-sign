@@ -1,6 +1,6 @@
 
 
-# some issues with  ssl, fix it later
+# some issues with  ssl to connect to mongodb with auth
+# disable it, access to mongodb is only possible from within cluster
 # helm install mongo bitnami/mongodb --set auth.rootPassword="aaaaaa123#"
-# disable auth for now
 helm install mongo bitnami/mongodb --set auth.enabled=false

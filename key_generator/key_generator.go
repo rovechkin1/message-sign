@@ -7,10 +7,27 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"log"
 	"os"
+	"strconv"
 )
 
 func main() {
-	keys, err := generateKeys()
+	numRecords := 100
+	var err error
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-h" ||
+			os.Args[1] == "--help" {
+			fmt.Printf("Usage: key_generator [num_record]\n")
+			fmt.Printf("\t num_record default is 100\n")
+			return
+		} else {
+			numRecords, err = strconv.Atoi(os.Args[1])
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	keys, err := generateKeys(numRecords)
 	if err != nil {
 		log.Fatal("can't generate keys")
 	}
@@ -41,8 +58,7 @@ type SigningKey struct {
 	pk    string
 }
 
-func generateKeys() (map[string]SigningKey, error) {
-	nKeys := 100
+func generateKeys(nKeys int) (map[string]SigningKey, error) {
 	keys := make(map[string]SigningKey)
 	for iKey := 0; iKey < nKeys; iKey += 1 {
 		privateKey, err := crypto.GenerateKey()

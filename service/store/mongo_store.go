@@ -148,7 +148,7 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 	return records, nil
 }
 
-// WriteSignaturesBatch writes messages signatures in batch
+// WriteRecord writes a single record
 func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 
 	db := c.client.Client.Database(dbName)
@@ -168,21 +168,12 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 		return err
 	}
 
-	//update := bson.D{{"$set", bson.D{
-	//	{"msg", record.Msg},
-	//	{"key", record.KeyId},
-	//	{"sign", record.Signature},
-	//	}}}
-	//_, err := collSign.InsertOne(ctx, update)
-	//if err != nil {
-	//	return err
-	//}
-
 	// record is saved, can remove it from usigned collection
 	_, err = coll.DeleteOne(ctx, filter)
 	if err != nil {
 		return err
 	}
+	log.Printf("Updated document with id %v\n",record.Id)
 	return nil
 }
 

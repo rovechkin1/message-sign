@@ -7,6 +7,8 @@ import (
 	"github.com/rovechkin1/message-sign/service/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,7 +75,7 @@ func connect(uri string) (*mongo.Client, context.Context,
 // This is a user defined method that accepts
 // mongo.Client and context.Context
 // This method used to ping the mongoDB, return error if any.
-func insertRecords(client *mongo.Client, ctx context.Context) error {
+func insertRecords(numRecords int, client *mongo.Client, ctx context.Context) error {
 
 	// mongo.Client has Ping to ping mongoDB, deadline of
 	// the Ping method will be determined by cxt
@@ -86,8 +88,21 @@ func insertRecords(client *mongo.Client, ctx context.Context) error {
 	db := client.Database(dbName)
 	coll := db.Collection("records")
 
-	for i := 0; i < 2; i += 1 {
-		recs := generateRecords(100)
+	numBatches := 1
+	batchSize := 1000
+	if numRecords > batchSize {
+		numBatches = numRecords / batchSize
+	}
+	if numRecords%batchSize != 0 {
+		numBatches += 1
+	}
+
+	if numRecords < batchSize {
+		batchSize = numRecords
+	}
+	j := 0
+	for i := 0; i < numBatches; i += 1 {
+		recs := generateRecords(batchSize)
 		var bsons []interface{}
 		for _, r := range recs {
 			obj := bson.D{
@@ -98,13 +113,13 @@ func insertRecords(client *mongo.Client, ctx context.Context) error {
 			}
 			bsons = append(bsons, obj)
 		}
-
-		res, err := coll.InsertMany(ctx, bsons)
+		_, err := coll.InsertMany(ctx, bsons)
 		if err != nil {
 			return err
 		}
-		log.Printf("INFO: inserted %v records", len(res.InsertedIDs))
+		j += len(bsons)
 	}
+	log.Printf("INFO: inserted %v records", j)
 
 	return nil
 }
@@ -136,6 +151,21 @@ func generateRecords(nRecords int) []Record {
 }
 
 func main() {
+	numRecords := 100
+	var err error
+	if len(os.Args) > 1 {
+		if os.Args[1] == "-h" ||
+			os.Args[1] == "--help" {
+			fmt.Printf("Usage: record_generator [num_record]\n")
+			fmt.Printf("\t num_record default is 100\n")
+			return
+		} else {
+			numRecords, err = strconv.Atoi(os.Args[1])
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 
 	// Get Client, Context, CancelFunc and
 	// err from connect method.
@@ -149,7 +179,7 @@ func main() {
 	defer close(client, ctx, cancel)
 
 	// Ping mongoDB with Ping method
-	err = insertRecords(client, ctx)
+	err = insertRecords(numRecords, client, ctx)
 	if err != nil {
 		log.Printf("ERROR: failed to insert records, error: %v", err)
 	}
