@@ -30,14 +30,13 @@ type Record struct {
 }
 ```
 
-Signing service exposes the following public API
+Signing service exposes the following API
 
 ```
-# sign records /sign/<batch_size>
-curl localhost:8080/sign/5000
-
-curl http://localhost:8080/stats
-stats: {"signed_records":38680,"unsigned_records":10208}
+GET    /                # liveness         
+GET    /sign/:size      # signing request, size if a batch size      
+GET    /stats           # show signed and unsigned records         
+GET    /batch/:batchId/:batchCount/:key # internal endpoint to launch batch signing
 ```
 Note that APIs are not exposed externally via ingress, which would
 require registering a domain name or getting a static IP.
