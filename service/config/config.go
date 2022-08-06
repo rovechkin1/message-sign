@@ -10,6 +10,7 @@ func init() {
 	viper.SetDefault("mongo_url", "mongodb://localhost:27017")
 	viper.SetDefault("mongo_user", "")
 	viper.SetDefault("mongo_pwd", "")
+	viper.SetDefault("keys_dir", "")
 
 	viper.SetDefault("signer_port", "8080")
 
@@ -18,6 +19,8 @@ func init() {
 	viper.BindEnv("mongo_pwd")
 
 	viper.BindEnv("signer_port")
+
+	viper.BindEnv("keys_dir")
 }
 
 func GetMongoUrl() string {
@@ -34,4 +37,8 @@ func GetMongoPwd() string {
 
 func GetSignerPort() string {
 	return viper.GetString("signer_port")
+}
+
+func GetKeysDir() string {
+	return viper.GetString("keys_dir")
 }

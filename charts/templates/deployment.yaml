@@ -40,6 +40,8 @@ spec:
               value: {{ .Values.env.mongoUser }}
             - name: BS_MONGO_PWD
               value: {{ .Values.env.mongoPwd }}
+            - name: BS_KEYS_DIR
+              value: {{ .Values.env.keysDir }}
 
           ports:
             - name: http
@@ -55,6 +57,15 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: keys
+              mountPath: "/keys"
+              readOnly: true
+      volumes:
+        - name: keys
+          secret:
+            secretName: sign-keys
+            optional: false
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -15,7 +15,6 @@ FROM ubuntu:20.04
 RUN apt update -y
 RUN apt install curl -y
 WORKDIR /app/
-COPY keys.csv  /app/
 COPY --from=build /app/service /app/service
 COPY --from=build /app/record-generator /app/record-generator
 

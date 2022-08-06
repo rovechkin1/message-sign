@@ -79,6 +79,10 @@ mongosh admin --host "mongo-mongodb" --authenticationDatabase admin
 ```
 
 ## Deploy signing service
+Create k8s secret from keys file
+```
+./k8s-create-secret.sh
+```
 ```
 ./k8s-deploy-msg-signer.sh
 ```

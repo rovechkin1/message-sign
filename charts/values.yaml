@@ -18,6 +18,7 @@ env:
   mongoUrl: "mongodb://mongo-mongodb:27017"
   mongoUser: ""
   mongoPwd: ""
+  keysDir: "/keys"
 
 serviceAccount:
   # Specifies whether a service account should be created

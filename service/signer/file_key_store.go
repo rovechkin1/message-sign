@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rovechkin1/message-sign/service/config"
 	"log"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -15,7 +17,7 @@ type fileKeyStore struct {
 }
 
 func NewFileKeyStore() (KeyStore, error) {
-	content, err := os.ReadFile("keys.csv")
+	content, err := os.ReadFile(path.Join(config.GetKeysDir(),"keys.csv"))
 	if err != nil {
 		log.Fatal(err)
 	}
