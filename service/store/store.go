@@ -10,6 +10,8 @@ type Record struct {
 	Msg string
 	// signature
 	Signature string
+	// salt
+	Salt string
 	// Public key id
 	KeyId string
 }

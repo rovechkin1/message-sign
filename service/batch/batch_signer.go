@@ -2,6 +2,7 @@ package batch
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/rovechkin1/message-sign/service/signer"
 	"github.com/rovechkin1/message-sign/service/store"
 	"log"
@@ -56,7 +57,8 @@ func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) err
 
 	for _, r := range records {
 		// sign here
-		sign, err := key.Sign(r.Msg)
+		r.Salt = uuid.New().String()
+		sign, err := key.Sign(r.Salt + r.Msg)
 		if err != nil {
 			// ignore error continue signing
 			log.Printf("WARN: failed to sign message with key: %v, error: %v", key.KeyId, err)

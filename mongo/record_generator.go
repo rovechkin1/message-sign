@@ -20,7 +20,7 @@ import (
 const (
 	dbName             = "msg-signer"
 	unsignedCollection = "records"
-	signedCollection   = "signed-records"
+	signedCollection   = "signedrecords"
 )
 
 // This is a user defined method to close resources.

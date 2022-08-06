@@ -18,7 +18,7 @@ import (
 const (
 	dbName             = "msg-signer"
 	unsignedCollection = "records"
-	signedCollection   = "signed-records"
+	signedCollection   = "signedrecords"
 )
 
 type MongoClient struct {
@@ -160,6 +160,7 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 		{"msg", record.Msg},
 		{"key", record.KeyId},
 		{"sign", record.Signature},
+		{"salt", record.Salt},
 	}}}
 	opts := options.UpdateOptions{}
 	opts.SetUpsert(true)
@@ -173,7 +174,7 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Updated document with id %v\n",record.Id)
+	log.Printf("Updated document with id %v\n", record.Id)
 	return nil
 }
 
