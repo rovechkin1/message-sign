@@ -29,7 +29,7 @@ func main() {
 	// initialize objects
 	mongoClient, ctxMongo, err := store.NewMongoClient(ctx)
 	if err != nil {
-		log.Fatalf("Cannot create mongo client: %v, error: %v", config.GetMongoUrl(), err)
+		log.Fatalf("Cannot create record-generator client: %v, error: %v", config.GetMongoUrl(), err)
 	}
 	defer mongoClient.Close(ctxMongo)
 	store := store.NewMongoStore(mongoClient)

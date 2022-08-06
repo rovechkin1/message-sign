@@ -16,7 +16,7 @@ func main() {
 	if len(os.Args) > 1 {
 		if os.Args[1] == "-h" ||
 			os.Args[1] == "--help" {
-			fmt.Printf("Usage: key_generator [num_record]\n")
+			fmt.Printf("Usage: key-generator [num_record]\n")
 			fmt.Printf("\t num_record default is 100\n")
 			return
 		} else {

@@ -100,7 +100,7 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 	// Scan all the records and select records which belong to
 	// this shard. This is not efficient, e.g. each shard has to read all
 	// records. Better approach would be to craft a filter query
-	// to run in mongo store
+	// to run in record-generator store
 	db := c.client.Client.Database(dbName)
 	coll := db.Collection(unsignedCollection)
 	opts := options.Find()
@@ -196,7 +196,7 @@ func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,
 		opts = opts.SetAuth(credential)
 	}
 
-	// mongo.Connect return mongo.Client method
+	// record-generator.Connect return record-generator.Client method
 	client, err := mongo.Connect(ctx, opts)
 	return client, ctx, cancel, err
 }

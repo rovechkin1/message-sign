@@ -43,9 +43,9 @@ func close(client *mongo.Client, ctx context.Context,
 	}()
 }
 
-// This is a user defined method that returns mongo.Client,
+// This is a user defined method that returns record-generator.Client,
 // context.Context, context.CancelFunc and error.
-// mongo.Client will be used for further database operation.
+// record-generator.Client will be used for further database operation.
 // context.Context will be used set deadlines for process.
 // context.CancelFunc will be used to cancel context and
 // resource associated with it.
@@ -67,7 +67,7 @@ func connect(uri string) (*mongo.Client, context.Context,
 		opts = opts.SetAuth(credential)
 	}
 
-	// mongo.Connect return mongo.Client method
+	// record-generator.Connect return record-generator.Client method
 	client, err := mongo.Connect(ctx, opts)
 	return client, ctx, cancel, err
 }
@@ -77,7 +77,7 @@ func connect(uri string) (*mongo.Client, context.Context,
 // This method used to ping the mongoDB, return error if any.
 func insertRecords(numRecords int, client *mongo.Client, ctx context.Context) error {
 
-	// mongo.Client has Ping to ping mongoDB, deadline of
+	// record-generator.Client has Ping to ping mongoDB, deadline of
 	// the Ping method will be determined by cxt
 	// Ping method return error if any occurred, then
 	// the error can be handled.
