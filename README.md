@@ -56,8 +56,8 @@ k8s helm chart available and can be deployed as is into k8s cluster.
 Initially unsigned messages are placed into `records` collection. Batch workers query unsigned records from
 this collection and perform signing. As each record is signed , it is inserted into
 `signedrecords` collection and removed from `records` collection. This 
-ensures that none of the records are lost at anyt time- if a signing fails,
-the original record still remains in `records` collection adn can be 
+ensures that none of the records are lost at any time- if a signing fails,
+the original record still remains in `records` collection and can be 
 signed later. This ensures "atomic" signing.
 
 To simplify record selection for each batch, a simple sharding 
