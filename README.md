@@ -98,8 +98,8 @@ Mongodb can support upt to 40k/writes per second, but to achive
 such speed more powerful hardware is required
 
 
-##[Development Guide](DEVELOP.md)
+## [Development Guide](DEVELOP.md)
 
-##[K8s Deployment Guide](K8S.md)
+## [K8s Deployment Guide](K8S.md)
 
 
