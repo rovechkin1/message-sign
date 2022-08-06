@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/rovechkin1/message-sign/service/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"strings"
@@ -55,8 +56,17 @@ func connect(uri string) (*mongo.Client, context.Context,
 	ctx, cancel := context.WithTimeout(context.Background(),
 		30*time.Second)
 
+	opts := options.Client().ApplyURI(config.GetMongoUrl())
+	if config.GetMongoUser() != "" {
+		credential := options.Credential{
+			Username: config.GetMongoUser(),
+			Password: config.GetMongoPwd(),
+		}
+		opts = opts.SetAuth(credential)
+	}
+
 	// mongo.Connect return mongo.Client method
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(ctx, opts)
 	return client, ctx, cancel, err
 }
 

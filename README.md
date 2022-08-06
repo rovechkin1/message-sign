@@ -66,14 +66,15 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 
 ```
 # deploy mongodb into k8s cluster
-helm install mongo bitnami/mongodb --set auth.rootPassword="aaaaaa123#"
+./k8s-deploy-mongodb.sh
+
 ```
 Secret
-``````
+```
 # clusterIP: mongo-mongodb.default.svc.cluster.local
 # to get secret
 export MONGODB_ROOT_PASSWORD=$(kubectl get secret --namespace default mongo-mongodb -o jsonpath="{.data.mongodb-root-password}" | base64 -d)
-echo echo $MONGODB_ROOT_PASSWORD
+echo $MONGODB_ROOT_PASSWORD
 ```
 
 To Connect
@@ -82,3 +83,18 @@ kubectl run --namespace default mongo-mongodb-client --rm --tty -i --restart='Ne
 
 mongosh admin --host "mongo-mongodb" --authenticationDatabase admin -u root -p $MONGODB_
 ROOT_PASSWORD
+```
+
+## Deploy signing service
+```
+./k8s-deploy-msg-signer.sh
+```
+
+
+## Uninstall
+
+```
+helm uninstall msg-signer 
+helm uninstall mongo
+```
+

@@ -29,7 +29,7 @@ func main() {
 	// initialize objects
 	mongoClient, ctxMongo, err := store.NewMongoClient(ctx)
 	if err != nil {
-		log.Fatalf("Canot create mongo client")
+		log.Fatalf("Cannot create mongo client: %v, error: %v", config.GetMongoUrl(), err)
 	}
 	defer mongoClient.Close(ctxMongo)
 	store := store.NewMongoStore(mongoClient)
@@ -41,6 +41,11 @@ func main() {
 	batchSigner := batch.NewBatchSigner(store, keyStore)
 
 	router := gin.Default()
+	// used fro readiness and liveness
+	router.GET("/", func(c *gin.Context) {
+		c.String(http.StatusOK, fmt.Sprintf("live"))
+	})
+
 	// endpoint to sign all records in store
 	router.GET("/sign/:size", func(c *gin.Context) {
 		var err error
