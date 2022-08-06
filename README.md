@@ -25,7 +25,7 @@ type Record struct {
     Id string
     Msg String
     Signature string
-    Hash String
+    Salt String
     PublicKey String
 }
 ```
