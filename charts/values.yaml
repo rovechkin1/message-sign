@@ -15,7 +15,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 env:
-  mongoUrl: "mongodb://record-generator-mongodb:27017"
+  mongoUrl: "mongodb://mongo-mongodb:27017"
   mongoUser: ""
   mongoPwd: ""
   keysDir: "/keys"

@@ -4,11 +4,11 @@ RUN apk add git
 ENV GO111MODULE=on
 WORKDIR /src/
 COPY service  /src/service
-COPY mongo  /src/mongo
+COPY record-generator  /src/record-generator
 COPY go.mod go.sum /src/
 
 RUN CGO_ENABLED=0  go build -o /app/service service/cmd/main.go
-RUN CGO_ENABLED=0 go build -o /app/record-generator mongo/record_generator.go
+RUN CGO_ENABLED=0 go build -o /app/record-generator record-generator/record_generator.go
 
 
 FROM ubuntu:20.04

@@ -98,6 +98,10 @@ Mongodb can support upt to 40k/writes per second, but to achive
 such speed more powerful hardware is required
 
 
+If a more powerful VM was used (32 CPU/64 GB RAM) then signing rate 
+increased to 150 signing/sec
+
+
 ## [Development Guide](DEVELOP.md)
 
 ## [K8s Deployment Guide](K8S.md)
