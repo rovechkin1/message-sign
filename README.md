@@ -25,7 +25,7 @@ type Record struct {
     Id string
     Msg String
     Signature string
-    Hash String
+    Salt String
     PublicKey String
 }
 ```
@@ -56,8 +56,8 @@ k8s helm chart available and can be deployed as is into k8s cluster.
 Initially unsigned messages are placed into `records` collection. Batch workers query unsigned records from
 this collection and perform signing. As each record is signed , it is inserted into
 `signedrecords` collection and removed from `records` collection. This 
-ensures that none of the records are lost at anyt time- if a signing fails,
-the original record still remains in `records` collection adn can be 
+ensures that none of the records are lost at any time- if a signing fails,
+the original record still remains in `records` collection and can be 
 signed later. This ensures "atomic" signing.
 
 To simplify record selection for each batch, a simple sharding 
@@ -98,8 +98,8 @@ Mongodb can support upt to 40k/writes per second, but to achive
 such speed more powerful hardware is required
 
 
-[Development Guide](DEVELOP.md)
+## [Development Guide](DEVELOP.md)
 
-[K8s Deployment Guide](K8S.md)
+## [K8s Deployment Guide](K8S.md)
 
 
