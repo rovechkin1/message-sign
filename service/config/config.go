@@ -7,7 +7,7 @@ import (
 func init() {
 	viper.SetEnvPrefix("bs")
 
-	viper.SetDefault("mongo_url", "mongodb://localhost:27017")
+	viper.SetDefault("mongo_url", "mongodb://mongo-mongodb:27017")
 	viper.SetDefault("mongo_user", "")
 	viper.SetDefault("mongo_pwd", "")
 	viper.SetDefault("keys_dir", "")
