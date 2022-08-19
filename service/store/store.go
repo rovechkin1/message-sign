@@ -26,4 +26,7 @@ type MessageStore interface {
 
 	// WriteRecord writes a single record
 	WriteRecord(ctx context.Context, record Record) error
+
+	// WriteBatch writes records as a batch
+	WriteBatch(ctx context.Context, records []Record) error
 }

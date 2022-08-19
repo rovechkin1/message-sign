@@ -178,6 +178,43 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	return nil
 }
 
+// WriteBatch writes records as a batch
+func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
+
+	db := c.client.Client.Database(dbName)
+	coll := db.Collection(unsignedCollection)
+	collSign := db.Collection(signedCollection)
+
+	var docs []interface{}
+	var filters []interface{}
+	for _,record := range records {
+		doc :=  bson.D{
+			{"id", record.Id},
+			{"msg", record.Msg},
+			{"key", record.KeyId},
+			{"sign", record.Signature},
+			{"salt", record.Salt},
+		}
+		docs = append(docs, doc)
+		filter := bson.D{{"id", record.Id}}
+		filters = append(filters,filter)
+	}
+
+	_, err := collSign.InsertMany(ctx, docs)
+	if err != nil {
+		return err
+	}
+
+	// record is saved, can remove it from usigned collection
+	_, err = coll.DeleteMany(ctx, filters)
+	if err != nil {
+		return err
+	}
+	log.Printf("Updated documents total: %v\n", len(records))
+	return nil
+}
+
+
 func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,
 	context.CancelFunc, error) {
 
