@@ -3,6 +3,7 @@ package batch
 import (
 	"context"
 	"fmt"
+	"github.com/rovechkin1/message-sign/service/config"
 	"github.com/rovechkin1/message-sign/service/signer"
 	"github.com/rovechkin1/message-sign/service/store"
 	"io/ioutil"
@@ -60,9 +61,10 @@ func (c *RecordSigner) SignRecords(ctx context.Context,
 		// if failure is encountered, return reporting how many
 		// batches were spawn
 		iKey := iBatch % len(keys)
-		log.Printf("Batch: %v, key_id: %v", iBatch, keys[iKey])
-		url := fmt.Sprintf("http://localhost:8080/batch/%d/%d/%s",
-			iBatch, batchCount, keys[iKey])
+		log.Printf("Batch: %v, key_id: %v, url: %v", iBatch, keys[iKey],
+			config.GetMsgSignerUrl())
+		url := fmt.Sprintf("%s/batch/%d/%d/%s",
+			config.GetMsgSignerUrl(), iBatch, batchCount, keys[iKey])
 		resp, err := http.Get(url)
 		if err != nil {
 			return fmt.Errorf("Error signing batch %v, error: %v",

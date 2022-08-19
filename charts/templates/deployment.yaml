@@ -42,6 +42,8 @@ spec:
               value: {{ .Values.env.mongoPwd }}
             - name: BS_KEYS_DIR
               value: {{ .Values.env.keysDir }}
+            - name: BS_MSG_SIGNER_URL
+              value: {{ .Values.env.msgSignerUrl }}
 
           ports:
             - name: http
