@@ -186,7 +186,7 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 	collSign := db.Collection(signedCollection)
 
 	var docs []interface{}
-	var filters []interface{}
+	var deleteIds []string
 	for _,record := range records {
 		doc :=  bson.D{
 			{"id", record.Id},
@@ -196,21 +196,27 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 			{"salt", record.Salt},
 		}
 		docs = append(docs, doc)
-		filter := bson.D{{"id", record.Id}}
-		filters = append(filters,filter)
+		deleteIds = append(deleteIds,record.Id)
 	}
 
-	_, err := collSign.InsertMany(ctx, docs)
+	ins, err := collSign.InsertMany(ctx, docs)
 	if err != nil {
+		log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v",err)
 		return err
 	}
+	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v",ins)
+
 
 	// record is saved, can remove it from usigned collection
-	_, err = coll.DeleteMany(ctx, filters)
+	filter := bson.M{"id": bson.M { "$in": deleteIds}}
+	res, err := coll.DeleteMany(ctx, filter)
 	if err != nil {
+		log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v",err)
 		return err
 	}
-	log.Printf("Updated documents total: %v\n", len(records))
+	log.Printf("INFO: WriteBatch: DeleteMany ok, deleted: %v",res)
+
+	log.Printf("INFO: WriteBatch: Updated documents total: %v\n", len(records))
 	return nil
 }
 
