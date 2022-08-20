@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"log"
 	"time"
 
@@ -150,28 +152,50 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 
 // WriteRecord writes a single record
 func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
+	wc := writeconcern.New(writeconcern.WMajority())
+	rc := readconcern.Snapshot()
+	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
 
-	db := c.client.Client.Database(dbName)
-	coll := db.Collection(unsignedCollection)
-	collSign := db.Collection(signedCollection)
-
-	filter := bson.D{{"id", record.Id}}
-	update := bson.D{{"$set", bson.D{
-		{"msg", record.Msg},
-		{"key", record.KeyId},
-		{"sign", record.Signature},
-		{"salt", record.Salt},
-	}}}
-	opts := options.UpdateOptions{}
-	opts.SetUpsert(true)
-	_, err := collSign.UpdateOne(ctx, filter, update, &opts)
+	session, err := c.client.Client.StartSession()
 	if err != nil {
+		log.Printf("ERROR: WriteBatch: Failed StartSettion, error: %v",err)
 		return err
 	}
+	defer session.EndSession(ctx)
 
-	// record is saved, can remove it from usigned collection
-	_, err = coll.DeleteOne(ctx, filter)
+	writeRecords := func() error {
+		db := c.client.Client.Database(dbName)
+		coll := db.Collection(unsignedCollection)
+		collSign := db.Collection(signedCollection)
+
+		filter := bson.D{{"id", record.Id}}
+		update := bson.D{{"$set", bson.D{
+			{"msg", record.Msg},
+			{"key", record.KeyId},
+			{"sign", record.Signature},
+			{"salt", record.Salt},
+		}}}
+		opts := options.UpdateOptions{}
+		opts.SetUpsert(true)
+		_, err := collSign.UpdateOne(ctx, filter, update, &opts)
+		if err != nil {
+			return err
+		}
+
+		// record is saved, can remove it from usigned collection
+		_, err = coll.DeleteOne(ctx, filter)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
+		return nil,writeRecords()
+	}
+	_, err = session.WithTransaction(context.Background(), callback, txnOpts)
 	if err != nil {
+		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
 		return err
 	}
 	log.Printf("Updated document with id %v\n", record.Id)
@@ -180,43 +204,65 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 
 // WriteBatch writes records as a batch
 func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
+	// TODO: check that number of written records match passed records
+	wc := writeconcern.New(writeconcern.WMajority())
+	rc := readconcern.Snapshot()
+	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
 
-	db := c.client.Client.Database(dbName)
-	coll := db.Collection(unsignedCollection)
-	collSign := db.Collection(signedCollection)
+	session, err := c.client.Client.StartSession()
+	if err != nil {
+		log.Printf("ERROR: WriteBatch: Failed StartSettion, error: %v",err)
+		return err
+	}
+	defer session.EndSession(ctx)
 
-	var docs []interface{}
-	var deleteIds []string
-	for _,record := range records {
-		doc :=  bson.D{
-			{"id", record.Id},
-			{"msg", record.Msg},
-			{"key", record.KeyId},
-			{"sign", record.Signature},
-			{"salt", record.Salt},
+	bulkWrite := func() error {
+		db := c.client.Client.Database(dbName)
+		coll := db.Collection(unsignedCollection)
+		collSign := db.Collection(signedCollection)
+
+		var docs []interface{}
+		var deleteIds []string
+		for _, record := range records {
+			doc := bson.D{
+				{"id", record.Id},
+				{"msg", record.Msg},
+				{"key", record.KeyId},
+				{"sign", record.Signature},
+				{"salt", record.Salt},
+			}
+			docs = append(docs, doc)
+			deleteIds = append(deleteIds, record.Id)
 		}
-		docs = append(docs, doc)
-		deleteIds = append(deleteIds,record.Id)
-	}
 
-	ins, err := collSign.InsertMany(ctx, docs)
+		ins, err := collSign.InsertMany(ctx, docs)
+		if err != nil {
+			log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v", err)
+			return err
+		}
+		log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", ins)
+
+		// record is saved, can remove it from usigned collection
+		filter := bson.M{"id": bson.M{"$in": deleteIds}}
+		res, err := coll.DeleteMany(ctx, filter)
+		if err != nil {
+			log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v", err)
+			return err
+		}
+		log.Printf("INFO: WriteBatch: DeleteMany ok, deleted: %v", res)
+		return nil
+	}
+	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
+		return nil,bulkWrite()
+	}
+	_, err = session.WithTransaction(context.Background(), callback, txnOpts)
 	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v",err)
+		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
 		return err
 	}
-	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v",ins)
-
-
-	// record is saved, can remove it from usigned collection
-	filter := bson.M{"id": bson.M { "$in": deleteIds}}
-	res, err := coll.DeleteMany(ctx, filter)
-	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v",err)
-		return err
-	}
-	log.Printf("INFO: WriteBatch: DeleteMany ok, deleted: %v",res)
 
 	log.Printf("INFO: WriteBatch: Updated documents total: %v\n", len(records))
+
 	return nil
 }
 

@@ -69,31 +69,13 @@ func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) err
 		r.KeyId = key.KeyId
 
 		signedRecords = append(signedRecords, r)
-		// try to write batch
-
-		//// write records back
-		//err = c.store.WriteRecord(context.Background(), r)
-		//if err != nil {
-		//	log.Printf("WARN: failed to write record: %v, error: %v, skip it", r.Id, err)
-		//	continue
-		//}
 	}
 
-	// write as batch first
+	// write as batch
+	// if failed , then fail the whole batch it will be retried later
 	err = c.store.WriteBatch(context.Background(), signedRecords)
 	if err == nil {
 		return nil
-	}
-
-	// batch failed
-	// write individually
-	log.Printf("WARN: failed to write records in bulk, error: %v, write individually", err)
-	for _, r := range signedRecords {
-		err = c.store.WriteRecord(context.Background(), r)
-		if err != nil {
-			log.Printf("WARN: failed to write record: %v, error: %v, skip it", r.Id, err)
-			continue
-		}
 	}
 
 	return nil
