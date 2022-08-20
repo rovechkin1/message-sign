@@ -69,7 +69,7 @@ func (c *BatchSigner) signRecordsXact(ctx context.Context, batchId int, batchCou
 	writeBatch := func(sessionContext mongo.SessionContext) (interface{}, error) {
 
 		// query records
-		records, err := c.store.ReadBatch(ctx, batchId, batchCount)
+		records, err := c.store.ReadBatch(sessionContext, batchId, batchCount)
 		if err != nil {
 			return nil, err
 		}
