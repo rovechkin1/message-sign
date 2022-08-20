@@ -34,6 +34,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: BS_ENABLE_MONGO_XACT
+              value: {{ .Values.env.mongoXact | quote }}
             - name: BS_MONGO_URL
               value: {{ .Values.env.mongoUrl }}
             - name: BS_MONGO_USER
@@ -44,8 +46,6 @@ spec:
               value: {{ .Values.env.keysDir }}
             - name: BS_MSG_SIGNER_URL
               value: {{ .Values.env.msgSignerUrl }}
-            - name: BS_ENABLE_MONGO_XACT
-              value: {{ .Values.env.enableMongoXact }}
 
           ports:
             - name: http
