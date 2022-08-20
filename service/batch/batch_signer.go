@@ -3,8 +3,10 @@ package batch
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/rovechkin1/message-sign/service/config"
 	"github.com/rovechkin1/message-sign/service/signer"
 	"github.com/rovechkin1/message-sign/service/store"
+	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 )
 
@@ -12,12 +14,15 @@ import (
 type BatchSigner struct {
 	store    store.MessageStore
 	keyStore signer.KeyStore
+	mongo    *mongo.Client
 }
 
-func NewBatchSigner(store store.MessageStore, keyStore signer.KeyStore) *BatchSigner {
+func NewBatchSigner(store store.MessageStore, keyStore signer.KeyStore,
+	mongo *mongo.Client) *BatchSigner {
 	return &BatchSigner{
 		store:    store,
 		keyStore: keyStore,
+		mongo:    mongo,
 	}
 }
 
@@ -39,8 +44,9 @@ func (c *BatchSigner) SignBatch(ctx context.Context, batchId int, batchCount int
 func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) error {
 	log.Printf("INFO: sign batch: batchId %v, batchCount: %v",
 		batchId, batchCount)
+	ctx := context.Background()
 	// query records
-	records, err := c.store.ReadBatch(context.Background(), batchId, batchCount)
+	records, err := c.store.ReadBatch(ctx, batchId, batchCount)
 	if err != nil {
 		return err
 	}
@@ -71,11 +77,33 @@ func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) err
 		signedRecords = append(signedRecords, r)
 	}
 
-	// write as batch
-	// if failed , then fail the whole batch it will be retried later
-	err = c.store.WriteBatch(context.Background(), signedRecords)
-	if err == nil {
-		return nil
+	if config.GetEnableMongoXact() {
+		log.Printf("INFO: enabled mongo xact")
+		// start transaction
+		xact, err := store.NewMongoXact(c.mongo)
+		if err != nil {
+			return err
+		}
+		defer xact.Close(ctx)
+
+		// write as batch
+		// if failed , then fail the whole batch it will be retried later
+		writeBatch := func(sessionContext mongo.SessionContext) (interface{}, error) {
+			err = c.store.WriteBatch(sessionContext, signedRecords)
+			if err != nil {
+				return nil, err
+			}
+			return nil, nil
+		}
+		_, err = xact.WithTransaction(ctx, writeBatch)
+
+		return err
+	}
+
+	log.Printf("INFO: disable mongo xact")
+	err = c.store.WriteBatch(ctx, signedRecords)
+	if err != nil {
+		return err
 	}
 
 	return nil

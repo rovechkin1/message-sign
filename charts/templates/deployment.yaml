@@ -44,6 +44,8 @@ spec:
               value: {{ .Values.env.keysDir }}
             - name: BS_MSG_SIGNER_URL
               value: {{ .Values.env.msgSignerUrl }}
+            - name: BS_ENABLE_MONGO_XACT
+              value: {{ .Values.env.enableMongoXact }}
 
           ports:
             - name: http

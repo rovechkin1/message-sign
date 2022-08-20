@@ -20,6 +20,7 @@ env:
   mongoPwd: ""
   keysDir: "/keys"
   msgSignerUrl: "http://msg-signer.default.svc.cluster.local"
+  enableMongoXact: true
 
 serviceAccount:
   # Specifies whether a service account should be created

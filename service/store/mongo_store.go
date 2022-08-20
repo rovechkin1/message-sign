@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"go.mongodb.org/mongo-driver/mongo/readconcern"
-	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"log"
 	"strconv"
 	"time"
@@ -22,7 +20,7 @@ const (
 	dbName             = "msg-signer"
 	unsignedCollection = "records"
 	signedCollection   = "signedrecords"
-	signingKeys = "signingkeys"
+	signingKeys        = "signingkeys"
 )
 
 type MongoClient struct {
@@ -64,6 +62,10 @@ func NewMongoClient(ctx context.Context) (*MongoClient, context.Context, error) 
 }
 func (c *MongoClient) Close(ctx context.Context) {
 	close(c.Client, ctx, c.cancel)
+}
+
+func (c *MongoClient) GetMongo() *mongo.Client {
+	return c.Client
 }
 
 // Interface to read/write messages
@@ -159,48 +161,26 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	coll := db.Collection(unsignedCollection)
 	collSign := db.Collection(signedCollection)
 
-	wc := writeconcern.New(writeconcern.WMajority())
-	rc := readconcern.Snapshot()
-	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
-
-	session, err := c.client.Client.StartSession()
+	filter := bson.D{{"id", record.Id}}
+	update := bson.D{{"$set", bson.D{
+		{"msg", record.Msg},
+		{"key", record.KeyId},
+		{"sign", record.Signature},
+		{"salt", record.Salt},
+	}}}
+	opts := options.UpdateOptions{}
+	opts.SetUpsert(true)
+	_, err := collSign.UpdateOne(ctx, filter, update, &opts)
 	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed StartSettion, error: %v",err)
 		return err
 	}
-	defer session.EndSession(ctx)
 
-	writeRecords := func(sessionContext mongo.SessionContext) error {
-		filter := bson.D{{"id", record.Id}}
-		update := bson.D{{"$set", bson.D{
-			{"msg", record.Msg},
-			{"key", record.KeyId},
-			{"sign", record.Signature},
-			{"salt", record.Salt},
-		}}}
-		opts := options.UpdateOptions{}
-		opts.SetUpsert(true)
-		_, err := collSign.UpdateOne(sessionContext, filter, update, &opts)
-		if err != nil {
-			return err
-		}
-
-		// record is saved, can remove it from usigned collection
-		_, err = coll.DeleteOne(sessionContext, filter)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
-		return nil,writeRecords(sessionContext)
-	}
-	_, err = session.WithTransaction(ctx, callback, txnOpts)
+	// record is saved, can remove it from usigned collection
+	_, err = coll.DeleteOne(ctx, filter)
 	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
 		return err
 	}
+
 	log.Printf("Updated document with id %v\n", record.Id)
 	return nil
 }
@@ -212,57 +192,35 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 	coll := db.Collection(unsignedCollection)
 	collSign := db.Collection(signedCollection)
 
-	wc := writeconcern.New(writeconcern.WMajority())
-	rc := readconcern.Snapshot()
-	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
+	var docs []interface{}
+	var deleteIds []string
+	for _, record := range records {
+		doc := bson.D{
+			{"id", record.Id},
+			{"msg", record.Msg},
+			{"key", record.KeyId},
+			{"sign", record.Signature},
+			{"salt", record.Salt},
+		}
+		docs = append(docs, doc)
+		deleteIds = append(deleteIds, record.Id)
+	}
 
-	session, err := c.client.Client.StartSession()
+	ins, err := collSign.InsertMany(ctx, docs)
 	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed StartSettion, error: %v",err)
+		log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v", err)
 		return err
 	}
-	defer session.EndSession(ctx)
+	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", ins)
 
-	bulkWrite := func(sessionContext mongo.SessionContext) error {
-		var docs []interface{}
-		var deleteIds []string
-		for _, record := range records {
-			doc := bson.D{
-				{"id", record.Id},
-				{"msg", record.Msg},
-				{"key", record.KeyId},
-				{"sign", record.Signature},
-				{"salt", record.Salt},
-			}
-			docs = append(docs, doc)
-			deleteIds = append(deleteIds, record.Id)
-		}
-
-		ins, err := collSign.InsertMany(sessionContext, docs)
-		if err != nil {
-			log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v", err)
-			return err
-		}
-		log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", ins)
-
-		// record is saved, can remove it from usigned collection
-		filter := bson.M{"id": bson.M{"$in": deleteIds}}
-		res, err := coll.DeleteMany(sessionContext, filter)
-		if err != nil {
-			log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v", err)
-			return err
-		}
-		log.Printf("INFO: WriteBatch: DeleteMany ok, deleted: %v", res)
-		return nil
-	}
-	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
-		return nil,bulkWrite(sessionContext)
-	}
-	_, err = session.WithTransaction(ctx, callback, txnOpts)
+	// record is saved, can remove it from usigned collection
+	filter := bson.M{"id": bson.M{"$in": deleteIds}}
+	res, err := coll.DeleteMany(ctx, filter)
 	if err != nil {
-		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
+		log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v", err)
 		return err
 	}
+	log.Printf("INFO: WriteBatch: DeleteMany ok, deleted: %v", res)
 
 	log.Printf("INFO: WriteBatch: Updated documents total: %v\n", len(records))
 
@@ -276,10 +234,9 @@ func (c *mongoStore) ReadSigningKeyMetadata(ctx context.Context, keyId string) (
 	var result bson.D
 	err := coll.FindOne(ctx, bson.D{{"id", keyId}}).Decode(&result)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	metadata := &SigningKeyMetadata{
-	}
+	metadata := &SigningKeyMetadata{}
 	for _, r := range result {
 		switch {
 		case r.Key == "id":
@@ -287,7 +244,7 @@ func (c *mongoStore) ReadSigningKeyMetadata(ctx context.Context, keyId string) (
 		case r.Key == "nonce":
 			n, err := strconv.ParseInt(fmt.Sprintf("%s", r.Value),
 				10, 64)
-			if err !=  nil {
+			if err != nil {
 				return nil, err
 			}
 			metadata.Nonce = n
@@ -296,10 +253,9 @@ func (c *mongoStore) ReadSigningKeyMetadata(ctx context.Context, keyId string) (
 	return metadata, nil
 }
 
-func (c *mongoStore)  WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error {
+func (c *mongoStore) WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error {
 	return nil
 }
-
 
 func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,
 	context.CancelFunc, error) {

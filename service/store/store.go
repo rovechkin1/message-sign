@@ -17,7 +17,7 @@ type Record struct {
 }
 
 type SigningKeyMetadata struct {
-	Id string
+	Id    string
 	Nonce int64
 }
 
@@ -40,5 +40,4 @@ type MessageStore interface {
 
 	// WriteSigningKeyMetadata writes metadata of signing key
 	WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error
-
 }

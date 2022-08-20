@@ -38,7 +38,7 @@ func main() {
 		log.Fatalf("Canot init key store")
 	}
 	recordSigner := batch.NewRecordSigner(store, keyStore)
-	batchSigner := batch.NewBatchSigner(store, keyStore)
+	batchSigner := batch.NewBatchSigner(store, keyStore, mongoClient.Client)
 
 	router := gin.Default()
 	// used fro readiness and liveness

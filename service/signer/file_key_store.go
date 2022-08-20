@@ -17,7 +17,7 @@ type fileKeyStore struct {
 }
 
 func NewFileKeyStore() (KeyStore, error) {
-	content, err := os.ReadFile(path.Join(config.GetKeysDir(),"keys.csv"))
+	content, err := os.ReadFile(path.Join(config.GetKeysDir(), "keys.csv"))
 	if err != nil {
 		log.Fatal(err)
 	}

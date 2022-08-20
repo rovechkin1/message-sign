@@ -12,6 +12,8 @@ func init() {
 	viper.SetDefault("mongo_pwd", "")
 	viper.SetDefault("keys_dir", "")
 
+	viper.SetDefault("enable_mongo_xact", false)
+
 	viper.SetDefault("msg_signer_url", "http://localhost:8080")
 	viper.SetDefault("signer_port", "8080")
 
@@ -23,6 +25,8 @@ func init() {
 	viper.BindEnv("signer_port")
 
 	viper.BindEnv("keys_dir")
+
+	viper.BindEnv("enable_mongo_xact")
 }
 
 func GetMongoUrl() string {
@@ -47,4 +51,8 @@ func GetSignerPort() string {
 
 func GetKeysDir() string {
 	return viper.GetString("keys_dir")
+}
+
+func GetEnableMongoXact() bool {
+	return viper.GetBool("enable_mongo_xact")
 }
