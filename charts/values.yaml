@@ -15,7 +15,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 env:
-  mongoUrl: "mongodb://mongo-mongodb:27017"
+  mongoUrl: "mongodb://mongo-mongodb-0.mongo-mongodb-headless.default.svc.cluster.local:27017/?connect=direct"
   mongoUser: ""
   mongoPwd: ""
   keysDir: "/keys"

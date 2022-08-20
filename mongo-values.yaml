@@ -1,0 +1,4 @@
+mongodb:
+  initdbScripts:
+    my_init_script.js: |
+      rs.initiate();

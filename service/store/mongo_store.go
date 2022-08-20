@@ -8,6 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"log"
+	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,6 +22,7 @@ const (
 	dbName             = "msg-signer"
 	unsignedCollection = "records"
 	signedCollection   = "signedrecords"
+	signingKeys = "signingkeys"
 )
 
 type MongoClient struct {
@@ -45,7 +47,7 @@ func NewMongoClient(ctx context.Context) (*MongoClient, context.Context, error) 
 		cols[c] = true
 	}
 
-	need := []string{unsignedCollection, signedCollection}
+	need := []string{unsignedCollection, signedCollection, signingKeys}
 	for _, c := range need {
 		if _, ok := cols[c]; !ok {
 			err := db.CreateCollection(ctx, c)
@@ -152,6 +154,11 @@ func (c *mongoStore) ReadBatch(ctx context.Context,
 
 // WriteRecord writes a single record
 func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
+
+	db := c.client.Client.Database(dbName)
+	coll := db.Collection(unsignedCollection)
+	collSign := db.Collection(signedCollection)
+
 	wc := writeconcern.New(writeconcern.WMajority())
 	rc := readconcern.Snapshot()
 	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
@@ -163,11 +170,7 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	}
 	defer session.EndSession(ctx)
 
-	writeRecords := func() error {
-		db := c.client.Client.Database(dbName)
-		coll := db.Collection(unsignedCollection)
-		collSign := db.Collection(signedCollection)
-
+	writeRecords := func(sessionContext mongo.SessionContext) error {
 		filter := bson.D{{"id", record.Id}}
 		update := bson.D{{"$set", bson.D{
 			{"msg", record.Msg},
@@ -177,13 +180,13 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 		}}}
 		opts := options.UpdateOptions{}
 		opts.SetUpsert(true)
-		_, err := collSign.UpdateOne(ctx, filter, update, &opts)
+		_, err := collSign.UpdateOne(sessionContext, filter, update, &opts)
 		if err != nil {
 			return err
 		}
 
 		// record is saved, can remove it from usigned collection
-		_, err = coll.DeleteOne(ctx, filter)
+		_, err = coll.DeleteOne(sessionContext, filter)
 		if err != nil {
 			return err
 		}
@@ -191,9 +194,9 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 	}
 
 	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
-		return nil,writeRecords()
+		return nil,writeRecords(sessionContext)
 	}
-	_, err = session.WithTransaction(context.Background(), callback, txnOpts)
+	_, err = session.WithTransaction(ctx, callback, txnOpts)
 	if err != nil {
 		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
 		return err
@@ -205,6 +208,10 @@ func (c *mongoStore) WriteRecord(ctx context.Context, record Record) error {
 // WriteBatch writes records as a batch
 func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 	// TODO: check that number of written records match passed records
+	db := c.client.Client.Database(dbName)
+	coll := db.Collection(unsignedCollection)
+	collSign := db.Collection(signedCollection)
+
 	wc := writeconcern.New(writeconcern.WMajority())
 	rc := readconcern.Snapshot()
 	txnOpts := options.Transaction().SetWriteConcern(wc).SetReadConcern(rc)
@@ -216,11 +223,7 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 	}
 	defer session.EndSession(ctx)
 
-	bulkWrite := func() error {
-		db := c.client.Client.Database(dbName)
-		coll := db.Collection(unsignedCollection)
-		collSign := db.Collection(signedCollection)
-
+	bulkWrite := func(sessionContext mongo.SessionContext) error {
 		var docs []interface{}
 		var deleteIds []string
 		for _, record := range records {
@@ -235,7 +238,7 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 			deleteIds = append(deleteIds, record.Id)
 		}
 
-		ins, err := collSign.InsertMany(ctx, docs)
+		ins, err := collSign.InsertMany(sessionContext, docs)
 		if err != nil {
 			log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v", err)
 			return err
@@ -244,7 +247,7 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 
 		// record is saved, can remove it from usigned collection
 		filter := bson.M{"id": bson.M{"$in": deleteIds}}
-		res, err := coll.DeleteMany(ctx, filter)
+		res, err := coll.DeleteMany(sessionContext, filter)
 		if err != nil {
 			log.Printf("ERROR: WriteBatch: Failed DeleteMany, error: %v", err)
 			return err
@@ -253,9 +256,9 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 		return nil
 	}
 	callback := func(sessionContext mongo.SessionContext) (interface{},error ){
-		return nil,bulkWrite()
+		return nil,bulkWrite(sessionContext)
 	}
-	_, err = session.WithTransaction(context.Background(), callback, txnOpts)
+	_, err = session.WithTransaction(ctx, callback, txnOpts)
 	if err != nil {
 		log.Printf("ERROR: WriteBatch: Failed WithTransaction, error: %v",err)
 		return err
@@ -263,6 +266,37 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 
 	log.Printf("INFO: WriteBatch: Updated documents total: %v\n", len(records))
 
+	return nil
+}
+
+// ReadKeyMetadata reads metadata of signing key
+func (c *mongoStore) ReadSigningKeyMetadata(ctx context.Context, keyId string) (*SigningKeyMetadata, error) {
+	db := c.client.Client.Database(dbName)
+	coll := db.Collection(signingKeys)
+	var result bson.D
+	err := coll.FindOne(ctx, bson.D{{"id", keyId}}).Decode(&result)
+	if err != nil {
+		return nil,err
+	}
+	metadata := &SigningKeyMetadata{
+	}
+	for _, r := range result {
+		switch {
+		case r.Key == "id":
+			metadata.Id = fmt.Sprintf("%s", r.Value)
+		case r.Key == "nonce":
+			n, err := strconv.ParseInt(fmt.Sprintf("%s", r.Value),
+				10, 64)
+			if err !=  nil {
+				return nil, err
+			}
+			metadata.Nonce = n
+		}
+	}
+	return metadata, nil
+}
+
+func (c *mongoStore)  WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error {
 	return nil
 }
 

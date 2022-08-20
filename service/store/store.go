@@ -16,6 +16,11 @@ type Record struct {
 	KeyId string
 }
 
+type SigningKeyMetadata struct {
+	Id string
+	Nonce int64
+}
+
 // MessageStore is an interface to read/write messages
 type MessageStore interface {
 	// GetRecordCount records in store which are signed
@@ -29,4 +34,11 @@ type MessageStore interface {
 
 	// WriteBatch writes records as a batch
 	WriteBatch(ctx context.Context, records []Record) error
+
+	// ReadSigningKeyMetadata reads metadata of signing key
+	ReadSigningKeyMetadata(ctx context.Context, keyId string) (*SigningKeyMetadata, error)
+
+	// WriteSigningKeyMetadata writes metadata of signing key
+	WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error
+
 }
