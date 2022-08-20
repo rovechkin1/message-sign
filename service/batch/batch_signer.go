@@ -68,8 +68,8 @@ func (c *BatchSigner) signRecordsXact(ctx context.Context, batchId int, batchCou
 	// 3. BulkWrite happens atomically
 	// if failed , then fail the whole batch it will be retried later
 	writeBatch := func(sessionContext mongo.SessionContext) (interface{}, error) {
-	err := c.signRecordsAux(sessionContext, batchId, batchCount,keyId)
-	return nil,err
+		err := c.signRecordsAux(sessionContext, batchId, batchCount, keyId)
+		return nil, err
 	}
 	_, err = xact.WithTransaction(ctx, writeBatch)
 	return err
@@ -94,13 +94,13 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 
 	// read key metadata which contains nonce
 	var keyMd *store.SigningKeyMetadata
-	keyMd, err = c.store.ReadSigningKeyMetadata(ctx,keyId)
-	if err != nil && err != mongo.ErrNoDocuments{
+	keyMd, err = c.store.ReadSigningKeyMetadata(ctx, keyId)
+	if err != nil && err != mongo.ErrNoDocuments {
 		return err
 	}
 	if keyMd == nil {
 		keyMd = store.NewSigningKeyMetadata(keyId)
-	} else{
+	} else {
 		fmt.Printf("here\n")
 	}
 
@@ -109,7 +109,7 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 	var signedRecords []store.Record
 	for _, r := range records {
 		// sign here
-		r.Salt = fmt.Sprintf("%d",keyMd.Nonce)
+		r.Salt = fmt.Sprintf("%d", keyMd.Nonce)
 		// add random salt if needed
 		sign, err := key.Sign(r.Salt + r.Msg)
 		if err != nil {
@@ -119,7 +119,7 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 		}
 		r.Signature = sign
 		r.KeyId = key.KeyId
-		keyMd.Nonce +=1
+		keyMd.Nonce += 1
 
 		signedRecords = append(signedRecords, r)
 	}
@@ -127,6 +127,6 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 
 	// write new key metadata, e.g. nonce
 	log.Printf("INFO: end with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)
-	err = c.store.WriteSigningKeyMetadata(ctx,keyMd)
+	err = c.store.WriteSigningKeyMetadata(ctx, keyMd)
 	return err
 }

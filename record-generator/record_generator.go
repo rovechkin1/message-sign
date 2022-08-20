@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/rovechkin1/message-sign/service/config"
+	"github.com/rovechkin1/message-sign/service/store"
 	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"os"
@@ -72,19 +73,41 @@ func connect(uri string) (*mongo.Client, context.Context,
 	return client, ctx, cancel, err
 }
 
+func insertRecords(ctx context.Context, mongo *mongo.Client, numRecords int) error {
+	if config.GetEnableMongoXact() {
+		return insertRecordsXact(ctx, mongo, numRecords)
+	} else {
+		log.Printf("INFO: disable mongo xact")
+		return insertRecordsAux(ctx, mongo, numRecords)
+	}
+}
+
+func insertRecordsXact(ctx context.Context, client *mongo.Client, numRecords int) error {
+	log.Printf("INFO: enabled mongo xact")
+	// start transaction
+	xact, err := store.NewMongoXact(client)
+	if err != nil {
+		return err
+	}
+	defer xact.Close(ctx)
+
+	insertRecords := func(sessionContext mongo.SessionContext) (interface{}, error) {
+		err := insertRecordsAux(sessionContext, client, numRecords)
+		return nil, err
+	}
+	_, err = xact.WithTransaction(ctx, insertRecords)
+	return err
+}
+
 // This is a user defined method that accepts
 // mongo.Client and context.Context
 // This method used to ping the mongoDB, return error if any.
-func insertRecords(numRecords int, client *mongo.Client, ctx context.Context) error {
+func insertRecordsAux(ctx context.Context, client *mongo.Client, numRecords int) error {
 
 	// record-generator.Client has Ping to ping mongoDB, deadline of
 	// the Ping method will be determined by cxt
 	// Ping method return error if any occurred, then
 	// the error can be handled.
-	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		return err
-	}
-	fmt.Println("connected successfully")
 	db := client.Database(dbName)
 	coll := db.Collection("records")
 
@@ -174,12 +197,17 @@ func main() {
 		panic(err)
 	}
 
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		panic(err)
+	}
+	fmt.Println("connected successfully")
+
 	// Release resource when the main
 	// function is returned.
 	defer close(client, ctx, cancel)
 
 	// Ping mongoDB with Ping method
-	err = insertRecords(numRecords, client, ctx)
+	err = insertRecords(ctx, client, numRecords)
 	if err != nil {
 		log.Printf("ERROR: failed to insert records, error: %v", err)
 	}
