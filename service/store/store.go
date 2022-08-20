@@ -21,6 +21,12 @@ type SigningKeyMetadata struct {
 	Nonce int64
 }
 
+func NewSigningKeyMetadata(keyId string) *SigningKeyMetadata {
+	return &SigningKeyMetadata{
+		Id: keyId,
+	}
+}
+
 // MessageStore is an interface to read/write messages
 type MessageStore interface {
 	// GetRecordCount records in store which are signed

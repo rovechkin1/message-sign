@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -242,19 +241,22 @@ func (c *mongoStore) ReadSigningKeyMetadata(ctx context.Context, keyId string) (
 		case r.Key == "id":
 			metadata.Id = fmt.Sprintf("%s", r.Value)
 		case r.Key == "nonce":
-			n, err := strconv.ParseInt(fmt.Sprintf("%s", r.Value),
-				10, 64)
-			if err != nil {
-				return nil, err
-			}
-			metadata.Nonce = n
+			metadata.Nonce = r.Value.(int64)
 		}
 	}
 	return metadata, nil
 }
 
+// WriteSigningKeyMetadata upserts key metadata to mongo store
 func (c *mongoStore) WriteSigningKeyMetadata(ctx context.Context, keyMetadata *SigningKeyMetadata) error {
-	return nil
+	db := c.client.Client.Database(dbName)
+	coll := db.Collection(signingKeys)
+
+	filter := bson.D{{"id", keyMetadata.Id}}
+	update := bson.D{{"$set", bson.D{{"nonce", keyMetadata.Nonce}}}}
+	opts := options.Update().SetUpsert(true)
+	_, err := coll.UpdateOne(ctx, filter, update, opts)
+	return err
 }
 
 func connect(ctx context.Context, uri string) (*mongo.Client, context.Context,

@@ -2,7 +2,7 @@ package batch
 
 import (
 	"context"
-	"github.com/google/uuid"
+	"fmt"
 	"github.com/rovechkin1/message-sign/service/config"
 	"github.com/rovechkin1/message-sign/service/signer"
 	"github.com/rovechkin1/message-sign/service/store"
@@ -47,7 +47,8 @@ func (c *BatchSigner) signRecords(batchId int, batchCount int, keyId string) err
 	if config.GetEnableMongoXact() {
 		return c.signRecordsXact(ctx, batchId, batchCount, keyId)
 	} else {
-		return c.signRecordsNoXact(ctx, batchId, batchCount, keyId)
+		log.Printf("INFO: disable mongo xact")
+		return c.signRecordsAux(ctx, batchId, batchCount, keyId)
 	}
 }
 
@@ -67,50 +68,14 @@ func (c *BatchSigner) signRecordsXact(ctx context.Context, batchId int, batchCou
 	// 3. BulkWrite happens atomically
 	// if failed , then fail the whole batch it will be retried later
 	writeBatch := func(sessionContext mongo.SessionContext) (interface{}, error) {
-
-		// query records
-		records, err := c.store.ReadBatch(sessionContext, batchId, batchCount)
-		if err != nil {
-			return nil, err
-		}
-		if len(records) == 0 {
-			log.Printf("INFO: no records to sign. BatchId : %v\n", batchId)
-			return nil, nil
-		}
-
-		// get key
-		key, err := c.keyStore.GetKeyById(keyId)
-		if err != nil {
-			return nil, err
-		}
-
-		var signedRecords []store.Record
-		for _, r := range records {
-			// sign here
-			r.Salt = uuid.New().String()
-			sign, err := key.Sign(r.Salt + r.Msg)
-			if err != nil {
-				// ignore error continue signing
-				log.Printf("WARN: failed to sign message with key: %v, error: %v", key.KeyId, err)
-				continue
-			}
-			r.Signature = sign
-			r.KeyId = key.KeyId
-
-			signedRecords = append(signedRecords, r)
-		}
-		err = c.store.WriteBatch(sessionContext, signedRecords)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
+	err := c.signRecordsAux(sessionContext, batchId, batchCount,keyId)
+	return nil,err
 	}
 	_, err = xact.WithTransaction(ctx, writeBatch)
 	return err
 }
 
-func (c *BatchSigner) signRecordsNoXact(ctx context.Context, batchId int, batchCount int, keyId string) error {
-	log.Printf("INFO: disable mongo xact")
+func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCount int, keyId string) error {
 	// query records
 	records, err := c.store.ReadBatch(ctx, batchId, batchCount)
 	if err != nil {
@@ -127,10 +92,25 @@ func (c *BatchSigner) signRecordsNoXact(ctx context.Context, batchId int, batchC
 		return err
 	}
 
+	// read key metadata which contains nonce
+	var keyMd *store.SigningKeyMetadata
+	keyMd, err = c.store.ReadSigningKeyMetadata(ctx,keyId)
+	if err != nil && err != mongo.ErrNoDocuments{
+		return err
+	}
+	if keyMd == nil {
+		keyMd = store.NewSigningKeyMetadata(keyId)
+	} else{
+		fmt.Printf("here\n")
+	}
+
+	log.Printf("INFO: start with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)
+
 	var signedRecords []store.Record
 	for _, r := range records {
 		// sign here
-		r.Salt = uuid.New().String()
+		r.Salt = fmt.Sprintf("%d",keyMd.Nonce)
+		// add random salt if needed
 		sign, err := key.Sign(r.Salt + r.Msg)
 		if err != nil {
 			// ignore error continue signing
@@ -139,10 +119,14 @@ func (c *BatchSigner) signRecordsNoXact(ctx context.Context, batchId int, batchC
 		}
 		r.Signature = sign
 		r.KeyId = key.KeyId
+		keyMd.Nonce +=1
 
 		signedRecords = append(signedRecords, r)
 	}
-
 	err = c.store.WriteBatch(ctx, signedRecords)
+
+	// write new key metadata, e.g. nonce
+	log.Printf("INFO: end with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)
+	err = c.store.WriteSigningKeyMetadata(ctx,keyMd)
 	return err
 }
