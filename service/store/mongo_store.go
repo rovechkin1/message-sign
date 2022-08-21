@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,6 +26,12 @@ const (
 type MongoClient struct {
 	Client *mongo.Client
 	cancel context.CancelFunc
+}
+var randGenerator *rand.Rand
+
+func init() {
+	s := rand.NewSource(time.Now().UnixNano())
+	randGenerator = rand.New(s)
 }
 
 func NewMongoClient(ctx context.Context) (*MongoClient, context.Context, error) {
@@ -211,6 +218,12 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 		return err
 	}
 	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", len(ins.InsertedIDs))
+
+	// simulate test failure
+	testFailureRatePct := config.GetTestSignFailureRatePct()
+	if randGenerator.Intn(100) < testFailureRatePct {
+		return fmt.Errorf("ERROR: This is a test failure")
+	}
 
 	// record is saved, can remove it from usigned collection
 	filter := bson.M{"id": bson.M{"$in": deleteIds}}

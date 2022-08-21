@@ -41,19 +41,15 @@ bin/service
 ## API
 ```
 GET    /                # liveness         
-GET    /sign/:size      # signing request, size if a batch size      
 GET    /stats           # show signed and unsigned records         
-GET    /batch/:batchId/:batchCount/:key # internal endpoint to launch batch signing
 ```
 Examples:
 
 ```
-# sign records /sign/<batch_size>
-curl localhost:8080/sign/30000
-
 # get stats /stats
-curl localhost:8080/stats
-ruslans-MBP:message-sign ruslan$ curl localhost:8080/stats
-stats: {"total_records":1000,"signed_records":800,"unsigned_records":200}
+$ curl localhost:8080/stats
+
+$ curl localhost:8080/stats
+stats: {"signed_records":1400000,"unsigned_records":0}
 
 ```

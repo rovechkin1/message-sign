@@ -28,8 +28,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 
 To Connect
 ```
-kubectl run --namespace default mongo-mongodb-client --rm --tty -i --restart='Never'  --image docker.io/bitnami/mongodb:6.0.0-debian-11-r0 --command -- bash
-
+kubectl run --namespace default mongo-mongodb-client --rm --tty -i --restart='Never' --image docker.io/bitnami/mongodb:6.0.0-debian-11-r0 --command -- bash
 mongosh admin --host "mongo-mongodb" --authenticationDatabase admin 
 ```
 
@@ -48,17 +47,13 @@ Connect to a signer pod
 kubectl get pods | grep msg-signer
 msg-signer-78d88cfb86-td9f2      1/1     Running   0          54s
 
-kubectl exec -it msg-signer-78d88cfb86-td9f2 -- bash
+kubectl exec -it msg-signer-0  -- bash
 ```
 Generate records
 ```
 ./record-generator 100000
 ```
 
-Sign messages
-```
-curl http://localhost:8080/sign/5000
-```
 Check progress
 ```
 

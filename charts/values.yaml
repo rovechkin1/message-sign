@@ -21,6 +21,7 @@ env:
   keysDir: "/keys"
   msgSignerUrl: "http://msg-signer.default.svc.cluster.local"
   mongoXact: "true"
+  testSignFailureRatePct: "0"
 
 serviceAccount:
   # Specifies whether a service account should be created

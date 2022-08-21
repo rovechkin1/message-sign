@@ -4,6 +4,4 @@
 
 # some issues with  ssl to connect to mongodb with auth
 # disable it, access to mongodb is only possible from within cluster
-# helm install record-generator bitnami/mongodb --set auth.rootPassword="aaaaaa123#"
-#helm install -f mongo-values.yaml mongo bitnami/mongodb --set auth.enabled=false --set volumePermissions.enabled=true
 helm install -f mongo-values.yaml mongo bitnami/mongodb --set auth.enabled=false --set architecture="replicaset"

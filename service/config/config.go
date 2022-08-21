@@ -30,6 +30,14 @@ func init() {
 	// we adapt k8s format e.g. <signer name>-0, <signer name>-2, ...
 	viper.SetDefault("my_pod_name", "signer-0")
 
+	// fault injection for test purposes in percents
+	viper.SetDefault("test_sign_failure_rate_pct", 0)
+
+	// generate-record tool
+	viper.SetDefault("record_generator_batch_size", 5000)
+	// in 16 byte multiple, e.g. record_generator_message_size_16=16 is 256 bytes
+	viper.SetDefault("record_generator_message_size_16", 16)
+
 	viper.BindEnv("mongo_url")
 	viper.BindEnv("mongo_user")
 	viper.BindEnv("mongo_pwd")
@@ -44,6 +52,11 @@ func init() {
 	viper.BindEnv("total_signers")
 	viper.BindEnv("batch_size")
 	viper.BindEnv("my_pod_name")
+	viper.BindEnv("test_sign_failure_rate_pct")
+
+	// generate-record tool
+	viper.BindEnv("record_generator_batch_size")
+	viper.BindEnv("record_generator_message_size_16")
 }
 
 func GetMongoUrl() string {
@@ -78,8 +91,8 @@ func GetTotalSigners() int {
 	return viper.GetInt("total_signers")
 }
 
-func GetBatchSize() int {
-	return viper.GetInt("batch_size")
+func GetTestSignFailureRatePct() int {
+	return viper.GetInt("test_sign_failure_rate_pct")
 }
 
 func GetMyPodName() string {
@@ -90,3 +103,17 @@ func GetMyPodName() string {
 	}
 	return hostname
 }
+
+func GetBatchSize() int {
+	return viper.GetInt("batch_size")
+}
+
+// generate-record tool
+func GetRecordGeneratorBatchSize() int {
+	return viper.GetInt("record_generator_batch_size")
+}
+
+func GetRecordGeneratorMessageSize16() int {
+	return viper.GetInt("record_generator_message_size_16")
+}
+

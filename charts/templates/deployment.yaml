@@ -49,6 +49,8 @@ spec:
               value: {{ .Values.env.msgSignerUrl }}
             - name: BS_TOTAL_SIGNERS
               value: {{ .Values.replicaCount | quote }}
+            - name: BS_TEST_SIGN_FAILURE_RATE_PCT
+              value: {{ .Values.env.testSignFailureRatePct | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}

@@ -189,7 +189,7 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 
 		signedRecords = append(signedRecords, r)
 	}
-	fmt.Printf("Will WriteBatch %v\n", len(signedRecords))
+
 	err = c.store.WriteBatch(ctx, signedRecords)
 	if err != nil {
 		log.Printf("ERROR WriteBatch failed, signerId: %v, error: %v", c.signerId, err)

@@ -112,7 +112,7 @@ func insertRecordsAux(ctx context.Context, client *mongo.Client, numRecords int)
 	coll := db.Collection("records")
 
 	numBatches := 1
-	batchSize := 1000
+	batchSize := config.GetRecordGeneratorBatchSize()
 	if numRecords > batchSize {
 		numBatches = numRecords / batchSize
 	}
@@ -164,9 +164,14 @@ func generateRecords(nRecords int) []Record {
 	for i := 0; i < nRecords; i += 1 {
 		uuidWithHyphen := uuid.New()
 		uuid := strings.Replace(uuidWithHyphen.String(), "-", "", -1)
+		// target 256 bytes for data
+		var data strings.Builder
+		for i:=0;i<config.GetRecordGeneratorMessageSize16();i+=1 {
+			data.WriteString(uuid)
+		}
 		r := Record{
 			Id:  uuid,
-			Msg: uuid, // same as guid
+			Msg: data.String(), // same as guid
 		}
 		records = append(records, r)
 	}
