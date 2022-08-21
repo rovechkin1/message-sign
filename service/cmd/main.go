@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -37,8 +36,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Canot init key store")
 	}
-	recordSigner := batch.NewRecordSigner(store, keyStore)
-	batchSigner := batch.NewBatchSigner(store, keyStore, mongoClient.Client)
 
 	router := gin.Default()
 	// used fro readiness and liveness
@@ -46,28 +43,10 @@ func main() {
 		c.String(http.StatusOK, fmt.Sprintf("live"))
 	})
 
-	// endpoint to sign all records in store
-	router.GET("/sign/:size", func(c *gin.Context) {
-		var err error
-		size, err := strconv.Atoi(c.Param("size"))
-		if err != nil {
-			c.String(http.StatusBadRequest, "invalid batch size")
-			return
-		}
-		err = recordSigner.SignRecords(ctx, store, size)
-		if err != nil {
-			log.Printf("ERROR: failed to sign in batch: %v", err)
-			c.String(http.StatusInternalServerError,
-				fmt.Sprintf("error signing records, error: %v", err))
-		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Success started  signing."))
-		}
-	})
-
 	// endpoint to get statistics
 	router.GET("/stats", func(c *gin.Context) {
 		var err error
-		stats, err := recordSigner.GetStats(ctx, store)
+		stats, err := batch.GetStats(ctx, store)
 		if err != nil {
 			log.Printf("ERROR: failed to get stats: %v", err)
 			c.String(http.StatusInternalServerError,
@@ -75,32 +54,6 @@ func main() {
 		} else {
 			r, _ := json.Marshal(*stats)
 			c.String(http.StatusOK, fmt.Sprintf("stats: %s", r))
-		}
-	})
-
-	// endpoint to sing a batch of records
-	router.GET("/batch/:batchId/:batchCount/:key", func(c *gin.Context) {
-		var err error
-		batchId, err := strconv.Atoi(c.Param("batchId"))
-		if err != nil {
-			c.String(http.StatusBadRequest, "invalid batchId")
-			return
-		}
-		batchCount, err := strconv.Atoi(c.Param("batchCount"))
-		if err != nil {
-			c.String(http.StatusBadRequest, "invalid batchCount")
-			return
-		}
-		if len(c.Param("key")) == 0 {
-			c.String(http.StatusBadRequest, "invalid keyId")
-			return
-		}
-		err = batchSigner.SignBatch(ctx, batchId, batchCount, c.Param("key"))
-		if err != nil {
-			log.Printf("ERROR: failed to sign in batchId: %v, error: %v", batchId, err)
-			c.String(http.StatusInternalServerError, fmt.Sprintf("error signing batch, error: %v", err))
-		} else {
-			c.String(http.StatusOK, fmt.Sprintf("Started signing for batchId: %v", batchId))
 		}
 	})
 
@@ -116,6 +69,14 @@ func main() {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
+
+	// start periodic signers
+	batchSigner, err := batch.NewBatchSigner(store, keyStore, mongoClient.GetMongo())
+	if err != nil {
+		log.Printf("ERROR: cannot create record signer, error: %v", err)
+	} else {
+		batchSigner.StartPeriodicBatchSigner(ctx)
+	}
 
 	// Listen for the interrupt signal.
 	<-ctx.Done()

@@ -17,6 +17,18 @@ func init() {
 	viper.SetDefault("msg_signer_url", "http://localhost:8080")
 	viper.SetDefault("signer_port", "8080")
 
+	// total signers env variable
+	// when stateful set is used this is set to total
+	// number of signing pods
+	// for local development this is 1
+	viper.SetDefault("total_signers", 1)
+
+	viper.SetDefault("batch_size", 100)
+
+	// signer id is identifier for the current pod
+	// we adapt k8s format e.g. <signer name>-0, <signer name>-2, ...
+	viper.SetDefault("my_pod_name", "signer-0")
+
 	viper.BindEnv("mongo_url")
 	viper.BindEnv("mongo_user")
 	viper.BindEnv("mongo_pwd")
@@ -27,6 +39,10 @@ func init() {
 	viper.BindEnv("keys_dir")
 
 	viper.BindEnv("enable_mongo_xact")
+
+	viper.BindEnv("total_signers")
+	viper.BindEnv("batch_size")
+	viper.BindEnv("my_pod_name")
 }
 
 func GetMongoUrl() string {
@@ -55,4 +71,16 @@ func GetKeysDir() string {
 
 func GetEnableMongoXact() bool {
 	return viper.GetBool("enable_mongo_xact")
+}
+
+func GetTotalSigners() int {
+	return viper.GetInt("total_signers")
+}
+
+func GetBatchSize() int {
+	return viper.GetInt("batch_size")
+}
+
+func GetMyPodName() string {
+	return viper.GetString("my_pod_name")
 }
