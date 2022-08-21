@@ -116,4 +116,3 @@ func GetRecordGeneratorBatchSize() int {
 func GetRecordGeneratorMessageSize16() int {
 	return viper.GetInt("record_generator_message_size_16")
 }
-

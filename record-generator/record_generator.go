@@ -166,7 +166,7 @@ func generateRecords(nRecords int) []Record {
 		uuid := strings.Replace(uuidWithHyphen.String(), "-", "", -1)
 		// target 256 bytes for data
 		var data strings.Builder
-		for i:=0;i<config.GetRecordGeneratorMessageSize16();i+=1 {
+		for i := 0; i < config.GetRecordGeneratorMessageSize16(); i += 1 {
 			data.WriteString(uuid)
 		}
 		r := Record{

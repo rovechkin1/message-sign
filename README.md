@@ -7,12 +7,12 @@ It can be utilized for generating pre-signatures such as ones menioned in [Axela
 white paper](https://axelar.network/axelar_whitepaper.pdf). According to Axelar 
 white paper, a significant work for signature computation may be done offline 
 and requires no interaction between parties (non-interactive online signing). 
-When actual message becomes know, only a small portion of work is remaining
+When an actual message becomes known, only a small portion of work is remaining
 in order to complete a signature. 
 
 While the size of pre-signature parameters is not
 easily found, this project assumes it will be an order of typical elliptic curve public and private key sizes,
-such as 32 bytes multiplied by some factor. It uses 256 bytes of random data.
+such as 32 bytes multiplied by some factor. Thus it uses 256 bytes of random data.
 
 Pre-signatures will be used by validator nodes running on Axelar network, thus
 such signing service must be run alongside a validator. This introduces the following
@@ -22,7 +22,7 @@ requirements:
 3. It has to be compact and easily deployable to reduce operational burden
 4. It has to be portable and vendor-independent and should not contain proprietary modules.
 
-The last requirement is particularly important since improves de-centralization of the network.
+The last requirement is particularly important since it improves de-centralization of the network.
 
 Additionally, each validator utilizes several public/private key pairs to perform block signing.
 A pair of public/privite key pair is associated with an account on Axelar network which is funded 
@@ -31,27 +31,27 @@ submit a new transaction, a unique nonce per account must be used. These nonces 
 e.g. a message with nonce N+1 cannot be processed by a network, until a message with nonce N is processed.
 
 This project uses 100 pre-generated Ethereum keys. To simulate computation
-of pre-signature it hashes message and nonce using keccak256 and uses 
-a private key to sign it.
+of pre-signature [it hashes message and nonce using keccak256 and uses 
+a private key to sign it](https://github.com/rovechkin1/message-sign/blob/11fa9071431d98e6c9e90366a7ab6f6d32916dbc/service/signer/signer.go#L22).
 
 ## Architecture
 
 ### Bulding blocks
-To be able to satisfy these requirements, this project uses kubernetes (k8s) as containerization
-platform with [helm](https://helm.sh/) for packaging. Support for these technologies provided by many vendors such as Google Cloud, Digital Ocean and 
+The project uses kubernetes (k8s) as containerization
+platform with [helm](https://helm.sh/) for packaging. Support for these technologies is provided by many vendors such as Google Cloud, Digital Ocean and 
 Vulr and others. Migration between Google Cloud, Digital Ocean and Vultr only requires defining storage types specific 
 for a vendor, otherwise no other changes are required.
 
-As a data store [mongodb](https://www.mongodb.com/) is chosen. It is developer friendly data storage solution
+As a data store [mongodb](https://www.mongodb.com/) is chosen. It is a developer friendly data storage solution
 with free community edition. It is fast, supports transactions and [packaged](https://github.com/bitnami/charts/tree/master/bitnami/mongodb) for k8s deployment.
 
-A particular advantage of mongodb its support of transaction. Its snapshot
+A particular advantage of mongodb is its support of transaction. Its snapshot
 isolation (which relies on MVCC) fits very well with chosen architecture in this project. 
 The signing is performed in parallel batches, selection of records into batches relies on consistent hashing 
 approach, such that when transaction is committed, there is no conflict
 between updated records, since batches never overlap.
 
-Snapshot isolation also ensures when new records are inserted, they will not show
+Snapshot isolation also ensures that when new records are inserted, they will not show
 up in batches which already being signed and will be processed in the next transaction.
 
 Using transaction is superior approach to using pub-sub queues or message 
@@ -73,7 +73,7 @@ The architecture of message signer is presented on a diagram below:
 ### Signing and shard selection
 
 A signing is performed in batches automatically using several signing pods, which query
-mongo store *unsigned record collection* for new records. During the signing, each pod
+mongo store *unsigned record collection* for new records. [During the signing](https://github.com/rovechkin1/message-sign/blob/11fa9071431d98e6c9e90366a7ab6f6d32916dbc/service/batch/batch_signer.go#L146), each pod
 will select a signing key for a batch in its shard using round-robin approach and pulls its last used nonce from
 state store maintained in mongodb. After signing is completed, the pod
 1. inserts records into *signer records collection*
@@ -81,17 +81,17 @@ state store maintained in mongodb. After signing is completed, the pod
 3. updates key nonce to the last used one
 4. increments its key counter to utilize next signing key in its key shard
 
-Record selection and signing are perfromed under context the same
+Record selection and signing are performed under context the same
 transaction. It ensures that only the scanned records will be signed. All records after 
 beginning of the transaction will be processed in the next signing cycle. 
 Imnsertion and removal into mongodb is done using its bulk API (InsertMany, DeleteMany).
 
-Selection of the records for each signing pods is done using consistent hashing. A 4 bytes of 
+[Selection of the records](https://github.com/rovechkin1/message-sign/blob/11fa9071431d98e6c9e90366a7ab6f6d32916dbc/service/store/mongo_store.go#L155) for each signing pods is done using consistent hashing. A 4 bytes of 
 a record id are used to identify its shard as
 ```bigquery
 shardId = recordId % totalSigners
 ```
-Keys are also sharded similarly such that new key index 
+Keys are also [sharded](https://github.com/rovechkin1/message-sign/blob/11fa9071431d98e6c9e90366a7ab6f6d32916dbc/service/batch/batch_signer.go#L87) similarly such that new key index 
 ```bigquery
 keyIdx := (c.keyIdx*c.totalSigners + c.signerId) % len(c.keys)
 c.keyIdx+=1

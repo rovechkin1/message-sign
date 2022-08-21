@@ -27,6 +27,7 @@ type MongoClient struct {
 	Client *mongo.Client
 	cancel context.CancelFunc
 }
+
 var randGenerator *rand.Rand
 
 func init() {
