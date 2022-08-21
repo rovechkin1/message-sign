@@ -78,7 +78,7 @@ func NewBatchSigner(store store.MessageStore, keyStore signer.KeyStore,
 func (c *BatchSigner) StartPeriodicBatchSigner(ctx context.Context) {
 
 	// TODO: use config for timeout
-	timer := time.NewTimer(1 * time.Second)
+	timer := time.NewTicker(1 * time.Second)
 
 	go func() {
 		for {
@@ -101,14 +101,15 @@ func (c *BatchSigner) StartPeriodicBatchSigner(ctx context.Context) {
 
 // SignBatch implements signer for messages
 func (c *BatchSigner) SignBatch(ctx context.Context, keyId string) error {
+	log.Printf("INFO: SignBatch, batchId: %v, keyId: %v", c.signerId, keyId)
 	go func() {
 		err := c.signRecords(keyId)
 		if err != nil {
 			log.Printf("ERROR: failed to sign records for batchId: %v, nRecords: %v, keyId: %v, error: %v",
 				c.signerId, c, keyId, err)
 		} else {
-			log.Printf("INFO: signed %v records for batchId: %v, keyId: %v",
-				c.batchSize, c.signerId, keyId)
+			log.Printf("INFO: signed  records for batchId: %v, keyId: %v",
+				c.signerId, keyId)
 		}
 	}()
 	return nil
@@ -173,8 +174,6 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 	}
 	if keyMd == nil {
 		keyMd = store.NewSigningKeyMetadata(keyId)
-	} else {
-		fmt.Printf("here\n")
 	}
 
 	log.Printf("INFO: start with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)
@@ -197,6 +196,7 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 		signedRecords = append(signedRecords, r)
 	}
 	err = c.store.WriteBatch(ctx, signedRecords)
+	log.Printf("INFO: signed %v records, batchId %v",len(signedRecords), batchId)
 
 	// write new key metadata, e.g. nonce
 	log.Printf("INFO: end with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)
