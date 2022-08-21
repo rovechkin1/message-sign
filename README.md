@@ -99,6 +99,11 @@ c.keyIdx+=1
 Note that number of keys must exceed number of signing pods. This is an obvious requirement, since otherwise, all
 pods cannot be used in parallel - there would be not enough keys for them.
 
+For simplicity this project doesn't maintain index of the key in the mongostore. Thus
+when signing pod is restarted, the index will be reset to 0 and keys 
+will not be utilized evently. This limitation will be removed later by
+persisting current key index in state store along with nonce.
+
 ### Record Structures
 Records before signing:
 ```
@@ -154,7 +159,14 @@ Performance of the signing was done using Google Cloud 3 node cluster.
 Each node is 2 vCPU 8 GB. For the signing 256 bytes messages were used.
 200k message were signed. The system was able to process these messages
 under 30-40 seconds, which means that average signing speed is 5-7k messages/second.
-Assuming Axelar block time of about 5 seconds this allows signing 25-35k records per block.
+Assuming Axelar block time of about 5 seconds this allows signing of 25-35k records per block.
+
+### Tests
+To be able to test mongo transaction as well as nonce order, a test 
+hook is introduced. It allows defines percent of random failures during 
+bulk insert into mongo db. This setting is configured during deployment [here](https://github.com/rovechkin1/message-sign/blob/f4aa8a3814b9830a310d1cbe89282ef39fc65b4f/charts/values.yaml#L24) and 
+can be set between 0-100%.
+
 
 ## Deployment
 
@@ -175,6 +187,8 @@ Sample record:
     sign: '0xa989699af09ef6cdfcec182b1043c5acd5b565a5444ea0cecb8dfbd0509695ac3d9905b32246774d46af617d122cdcea3a273a71287082feffaa4c3b9fccd82f01'
   }
 ```
+
+See also
 
 ## [Development Guide](DEVELOP.md)
 
