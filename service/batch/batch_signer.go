@@ -76,25 +76,21 @@ func NewBatchSigner(store store.MessageStore, keyStore signer.KeyStore,
 
 // StartPeriodicBatchSigner periodically polls available records and signs them
 func (c *BatchSigner) StartPeriodicBatchSigner(ctx context.Context) {
-
-	// TODO: use config for timeout
-	timer := time.NewTicker(1 * time.Second)
-
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				log.Printf("INFO: BatchSigner is done, batchId: %v", c.signerId)
 				return
-			case <-timer.C:
-				keyIdx := (c.keyIdx*c.totalSigners + c.signerId) % len(c.keys)
-				err := c.SignBatch(ctx, c.keys[keyIdx])
-				if err != nil {
-					log.Printf("ERROR: failed to sign batchId: %v, error: %v", c.signerId, err)
-				}
-				c.keyIdx += 1
 			default:
 			}
+			keyIdx := (c.keyIdx*c.totalSigners + c.signerId) % len(c.keys)
+			err := c.SignBatch(ctx, c.keys[keyIdx])
+			if err != nil {
+				log.Printf("ERROR: failed to sign batchId: %v, error: %v", c.signerId, err)
+			}
+			c.keyIdx += 1
+			time.Sleep(1 * time.Second)
 		}
 	}()
 }
@@ -102,16 +98,14 @@ func (c *BatchSigner) StartPeriodicBatchSigner(ctx context.Context) {
 // SignBatch implements signer for messages
 func (c *BatchSigner) SignBatch(ctx context.Context, keyId string) error {
 	log.Printf("INFO: SignBatch, batchId: %v, keyId: %v", c.signerId, keyId)
-	go func() {
-		err := c.signRecords(keyId)
-		if err != nil {
-			log.Printf("ERROR: failed to sign records for batchId: %v, nRecords: %v, keyId: %v, error: %v",
-				c.signerId, c, keyId, err)
-		} else {
-			log.Printf("INFO: signed  records for batchId: %v, keyId: %v",
-				c.signerId, keyId)
-		}
-	}()
+	err := c.signRecords(keyId)
+	if err != nil {
+		log.Printf("ERROR: failed to sign records for batchId: %v,  keyId: %v, error: %v",
+			c.signerId, keyId, err)
+	} else {
+		log.Printf("INFO: signed  records for batchId: %v, keyId: %v",
+			c.signerId, keyId)
+	}
 	return nil
 }
 func (c *BatchSigner) signRecords(keyId string) error {
@@ -195,8 +189,13 @@ func (c *BatchSigner) signRecordsAux(ctx context.Context, batchId int, batchCoun
 
 		signedRecords = append(signedRecords, r)
 	}
+	fmt.Printf("Will WriteBatch %v\n", len(signedRecords))
 	err = c.store.WriteBatch(ctx, signedRecords)
-	log.Printf("INFO: signed %v records, batchId %v",len(signedRecords), batchId)
+	if err != nil {
+		log.Printf("ERROR WriteBatch failed, signerId: %v, error: %v", c.signerId, err)
+		return err
+	}
+	log.Printf("INFO: signed %v records, batchId %v, keyId: %v", len(signedRecords), batchId, keyId)
 
 	// write new key metadata, e.g. nonce
 	log.Printf("INFO: end with nonce: %v, keyId: %v, batchId: %v", keyMd.Nonce, keyId, batchId)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/spf13/viper"
+	"os"
 )
 
 func init() {
@@ -82,5 +83,10 @@ func GetBatchSize() int {
 }
 
 func GetMyPodName() string {
-	return viper.GetString("my_pod_name")
+	// in k8s pod name is available as HOSTNAME
+	hostname := os.Getenv("HOSTNAME")
+	if hostname == "" {
+		return viper.GetString("my_pod_name")
+	}
+	return hostname
 }

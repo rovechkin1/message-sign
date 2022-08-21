@@ -210,7 +210,7 @@ func (c *mongoStore) WriteBatch(ctx context.Context, records []Record) error {
 		log.Printf("ERROR: WriteBatch: Failed InsertMany, error: %v", err)
 		return err
 	}
-	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", ins)
+	log.Printf("INFO: WriteBatch: InsertMany ok, inserted: %v", len(ins.InsertedIDs))
 
 	// record is saved, can remove it from usigned collection
 	filter := bson.M{"id": bson.M{"$in": deleteIds}}

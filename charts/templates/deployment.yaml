@@ -5,6 +5,7 @@ metadata:
   labels:
     {{- include "msg-signer.labels" . | nindent 4 }}
 spec:
+  serviceName: {{ include "msg-signer.fullname" . }}
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
 {{- end }}
@@ -46,7 +47,8 @@ spec:
               value: {{ .Values.env.keysDir }}
             - name: BS_MSG_SIGNER_URL
               value: {{ .Values.env.msgSignerUrl }}
-
+            - name: BS_TOTAL_SIGNERS
+              value: {{ .Values.replicaCount | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
